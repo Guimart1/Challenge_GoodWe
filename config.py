@@ -12,9 +12,7 @@ APARELHOS = {
     "computador": 150,
     "microondas": 800
 }
-<<<<<<< HEAD
-=======
 
 categorias = list(APARELHOS.keys())
 valores = list(APARELHOS.values())
->>>>>>> ec57396a99d8f608a2d1947221416d1dd5540158
+
