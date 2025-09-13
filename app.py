@@ -1,7 +1,6 @@
 import streamlit as st
 from backend import obter_dados_clima, calcular_geracao_solar
 from frontend import sidebar, container1
-
 from config import NIVEL_INICIAL_BATERIA, CAPACIDADE_BATERIA, CONSUMO_STANDBY, APARELHOS
 
 st.set_page_config(page_title="Gestão de Energia", layout="wide")

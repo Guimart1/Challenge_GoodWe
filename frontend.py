@@ -7,7 +7,6 @@ import time
 from streamlit_autorefresh import st_autorefresh
 
 
-
 def sidebar():
     scripts = """
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
@@ -34,12 +33,12 @@ def sidebar():
             font-family: 'lexend';
             margin-bottom: 20px
         }
-        
+
         .side-list {
             height: 50%;
             width: 100%;
         }
-        
+
         .user-container{
             display: flex;
             width: 100%;
@@ -47,7 +46,7 @@ def sidebar():
             align-items: end;
             justify-content: center;
         }
-        
+
         .user-box{
             display: flex;
             align-items: center;
@@ -57,7 +56,7 @@ def sidebar():
             background-color: #D9D9D9;
             border-radius: 35px;
         }
-        
+
         .side-container{
             display: flex;
             flex-direction: column;
@@ -82,7 +81,6 @@ def sidebar():
     """, unsafe_allow_html=True)
 
     with st.sidebar:
-
         st.markdown("""
         <div class="titulo">QiSun</div>
         <div class="side-container">
@@ -104,7 +102,9 @@ def sidebar():
                 </div>
             </div>
         </div>
-        """,unsafe_allow_html=True)
+        """, unsafe_allow_html=True)
+
+
 def container1():
     st.markdown("""
     <style>
