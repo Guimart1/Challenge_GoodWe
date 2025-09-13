@@ -1,14 +1,17 @@
 import requests
 from config import API_KEY, CIDADE, GERACAO_MAXIMA_SOLAR
+import streamlit as st
+from config import NIVEL_INICIAL_BATERIA, CAPACIDADE_BATERIA, CONSUMO_STANDBY, APARELHOS
 
 def obter_dados_clima():
-    url = f"http://api.weatherapi.com/v1/current.json?key={API_KEY}&q={CIDADE}"
+    url = f"http://api.weatherapi.com/v1/current.json?key={API_KEY}&q={CIDADE}&lang=pt"
     try:
         response = requests.get(url)
         response.raise_for_status()
         return response.json()
     except requests.exceptions.RequestException:
         return None
+
 
 def calcular_geracao_solar(dados_clima):
     if not dados_clima:
@@ -25,3 +28,20 @@ def calcular_geracao_solar(dados_clima):
     else:
         fator = 0.6
     return round(GERACAO_MAXIMA_SOLAR * fator, 2)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
