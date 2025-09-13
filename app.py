@@ -1,6 +1,7 @@
 import streamlit as st
 from backend import obter_dados_clima, calcular_geracao_solar
-from frontend import sidebar
+from frontend import sidebar, container1
+
 from config import NIVEL_INICIAL_BATERIA, CAPACIDADE_BATERIA, CONSUMO_STANDBY, APARELHOS
 
 st.set_page_config(page_title="Gestão de Energia", layout="wide")
@@ -11,6 +12,8 @@ dados = obter_dados_clima()
 if not dados:
     st.error("Erro ao obter dados de clima.")
     st.stop()
+
+container1()
 
 geracao = calcular_geracao_solar(dados)
 st.write(f"**Clima:** {dados['current']['condition']['text']} | {dados['current']['temp_c']}°C")
@@ -35,5 +38,3 @@ else:
         st.success(f"🏠 Energia da bateria usada: {energia_necessaria} W | Nível final: {novo_nivel} Wh")
     else:
         st.warning("⚠️ Bateria insuficiente. Usando rede elétrica.")
-
-

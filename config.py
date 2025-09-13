@@ -12,3 +12,8 @@ APARELHOS = {
     "computador": 150,
     "microondas": 800
 }
+
+categorias = list(APARELHOS.keys())
+valores = list(APARELHOS.values())
+
+
