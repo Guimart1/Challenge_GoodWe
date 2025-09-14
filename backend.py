@@ -17,9 +17,9 @@ def calcular_geracao_solar(dados_clima):
     if not dados_clima:
         return 0
     condicao = dados_clima['current']['condition']['text'].lower()
-    if 'claro' in condicao or 'sol' in condicao:
+    if 'Sol' in condicao or 'sol' in condicao:
         fator = 1.0
-    elif 'parcialmente nublado' in condicao:
+    elif 'Parcialmente nublado' in condicao:
         fator = 0.7
     elif 'nublado' in condicao or 'nevoeiro' in condicao:
         fator = 0.4
