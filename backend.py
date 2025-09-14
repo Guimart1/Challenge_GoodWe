@@ -2,6 +2,8 @@ import requests
 from config import API_KEY, CIDADE, GERACAO_MAXIMA_SOLAR
 import streamlit as st
 from config import NIVEL_INICIAL_BATERIA, CAPACIDADE_BATERIA, CONSUMO_STANDBY, APARELHOS
+from datetime import datetime
+
 
 def obter_dados_clima():
     url = f"http://api.weatherapi.com/v1/current.json?key={API_KEY}&q={CIDADE}&lang=pt"
@@ -16,10 +18,16 @@ def obter_dados_clima():
 def calcular_geracao_solar(dados_clima):
     if not dados_clima:
         return 0
+
+    # Estimativa: considera dia entre 6h e 18h
+    hora_atual = datetime.now().hour
+    if hora_atual < 6 or hora_atual > 18:
+        return 0
+
     condicao = dados_clima['current']['condition']['text'].lower()
-    if 'Sol' in condicao or 'sol' in condicao:
+    if 'sol' in condicao:
         fator = 1.0
-    elif 'Parcialmente nublado' in condicao:
+    elif 'parcialmente nublado' in condicao:
         fator = 0.7
     elif 'nublado' in condicao or 'nevoeiro' in condicao:
         fator = 0.4
@@ -27,8 +35,8 @@ def calcular_geracao_solar(dados_clima):
         fator = 0.2
     else:
         fator = 0.6
-    return round(GERACAO_MAXIMA_SOLAR * fator, 2)
 
+    return round(GERACAO_MAXIMA_SOLAR * fator, 2), hora_atual
 
 
 

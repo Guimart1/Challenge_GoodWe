@@ -42,9 +42,10 @@ def sidebar(pagina):
         .user-container{
             display: flex;
             width: 100%;
-            height: 30%;
+            height: 15%;
             align-items: end;
             justify-content: center;
+            border-top: 1px solid #D9D9D9;
         }
 
         .user-box{
@@ -78,9 +79,11 @@ def sidebar(pagina):
             padding-left: 10px;
             border-radius: 10px;
             font-size: 1.3em;
+            transition: 0.5s;
         }
         .side-element:hover {
             background-color: #025373 !important;
+            transition: 0.5s ease;
         }
     </style>
     """, unsafe_allow_html=True)

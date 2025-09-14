@@ -10,9 +10,12 @@ import base64
 def local_font_to_base64(path):
     with open(path, "rb") as f:
         return base64.b64encode(f.read()).decode()
-
-def clima_icon(dados): # ALTERAR ICONE DE ACORDO COM ESTADO DO CLIMA:
+ # ALTERAR ICONE DE ACORDO COM ESTADO DO CLIMA:
+def clima_icon(dados):
     condicao = dados["current"]["condition"]["text"]
+    hora = datetime.now().hour
+    esta_de_noite = hora < 6 or hora >= 18
+
     icones = {
         "Céu limpo": '<img width="110" height="110" src="https://img.icons8.com/external-tanah-basah-basic-outline-tanah-basah/96/external-sun-summer-tanah-basah-basic-outline-tanah-basah.png"/>',
         "Sol": '<img width="110" height="110" src="https://img.icons8.com/external-tanah-basah-basic-outline-tanah-basah/96/external-sun-summer-tanah-basah-basic-outline-tanah-basah.png"/>',
@@ -24,7 +27,13 @@ def clima_icon(dados): # ALTERAR ICONE DE ACORDO COM ESTADO DO CLIMA:
         "Neve": '<img width="110" height="110" src="https://img.icons8.com/ios/100/snow.png"/>',
         "Nevoeiro": '<img width="110" height="110" src="https://img.icons8.com/ios/100/fog-day.png"/>',
     }
-    return icones.get(condicao, "")
+
+    icone_noite = '<img width="110" height="110" src="https://img.icons8.com/ios/100/moon-symbol.png"/>'
+
+    if esta_de_noite:
+        return icone_noite
+    else:
+        return icones.get(condicao, "")
 
 def pizza_chart(): # GRAFICO DE PIZZA POR CONSUMO
     data = pd.DataFrame({'Categoria': categorias, 'Consumo': valores})
@@ -95,13 +104,15 @@ def bateria_visual(nivel):
         <div class="bateria">
             <div class="nivel"></div>
             <div class="texto-bateria">{porcentagem_bateria:02.2f}%</div>
+            <div class="texto-bateria">Nivel atual: {nivel:0.0f}Wh</div>
+            <div class="texto-bateria">Capacidade total: {CAPACIDADE_BATERIA:0.0f}Wh</div>
         </div>
     </div>
 
     """, unsafe_allow_html=True)
 
 def container1(): # CONTAINER DE INFOS PRINCIPAIS
-    font_base64 = local_font_to_base64("static/fonts/DS-DIGIB.TTF")
+    font_base64 = local_font_to_base64("./static/fonts/DS-DIGIB.TTF")
     dados = obter_dados_clima()
     if not dados:
         st.error("Erro ao obter dados de clima.")
@@ -125,6 +136,7 @@ def container1(): # CONTAINER DE INFOS PRINCIPAIS
             justify-content: center;
             align-items: center;
             height: 100%;
+            font-weight: bold;
         }}
         .chart-container {{
             display: flex;
@@ -145,6 +157,10 @@ def container1(): # CONTAINER DE INFOS PRINCIPAIS
     col1, col2, col3 = st.columns(3)
 
     geracao = calcular_geracao_solar(dados)
+    def aviso_noite():
+        hora_atual = datetime.now().hour
+        if hora_atual < 6 or hora_atual > 18:
+            return "Noite"
 
     aparelho = st.selectbox("Escolha um aparelho:", ["nenhum"] + list(APARELHOS.keys()))
     consumo = APARELHOS.get(aparelho, 0) + CONSUMO_STANDBY
@@ -170,7 +186,7 @@ def container1(): # CONTAINER DE INFOS PRINCIPAIS
                 <h2 class="text-clock mt-5">{current_time}</h2>
                 <div class="mt-3">{clima_icon(dados)}</div>
                 <div class="mt-2 fs-5">{dados['current']['condition']['text']} | {dados['current']['temp_c']}°C</div>
-                <div class="mt-3">Geração atual esperada: {geracao}W</div>
+                <div class="mt-3">Geração atual esperada: {geracao}W - {aviso_noite()}</div>
             </div>
         """, unsafe_allow_html=True)
 
