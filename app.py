@@ -6,8 +6,13 @@ from telas.gerenciamento import container_gerenciamento
 from components import sidebar
 from streamlit_autorefresh import st_autorefresh
 from backend.assistente_energia import gerar_sugestao
+from backend.config import APARELHOS
 
-st.set_page_config(page_title="Gestão de Energia", layout="wide")
+if "dispositivos_estado" not in st.session_state:
+    st.session_state["dispositivos_estado"] = {
+        comodo: {chave: False for chave in APARELHOS[comodo]}
+        for comodo in APARELHOS
+    }
 
 
 pagina = st.query_params.get("page", "Ínicio")
@@ -16,7 +21,7 @@ if pagina == "Ínicio":
     container_inicio()
 elif pagina == "Bateria":
     container_bateria()
-elif pagina == "Gerenciamento":
+elif pagina == "gerenciamento":
     container_gerenciamento()
 elif pagina == "Painel Solar":
     container_painel()

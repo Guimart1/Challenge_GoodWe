@@ -1,9 +1,9 @@
 import google.generativeai as genai
 from backend.simulador import *
 
-genai.configure(api_key="API_KEY_REDACTED")
+genai.configure(api_key="AIzaSyA2DjYR_iz9rpho3c53JHSn3MgjIR3Pvsc")
 
-model = genai.GenerativeModel("gemini-1.5-flash")
+model = genai.GenerativeModel("gemini-2.5-flash-lite")
 
 # dados = simular(usar_aparelho="geladeira", redirecionar_para="bateria")
 #
@@ -36,8 +36,13 @@ model = genai.GenerativeModel("gemini-1.5-flash")
 # except Exception as e:
 #     print("Erro ao conectar com a API Gemini:", e)
 
-def gerar_sugestao(aparelho, redirecionamento):
-    dados = simular(aparelho, redirecionamento)
+def gerar_sugestao(comodo, aparelho, redirecionamento, nivel_bateria_real):
+    dados = simular(comodo, aparelho, redirecionamento, nivel_bateria_real)
+    ativos = [
+        nome for nome in APARELHOS.get(comodo, {})
+        if st.session_state.get(f"{comodo}_{nome}", False)
+    ]
+
     if not dados:
         return None, "Erro ao obter dados da simulação."
 
@@ -56,6 +61,7 @@ def gerar_sugestao(aparelho, redirecionamento):
     - Aparelho em uso: {dados['aparelho_usado']} ({dados['consumo_total']} W)
     - Redirecionamento: {dados['redirecionamento']}
     - Bateria: {dados['nivel_bateria']} Wh ({dados['bateria_soc']}%)
+    - Dispositivos ativos no cômodo: {', '.join(ativos)}
 
     Seja direto, claro, evite informações com números, utilize tópicos destacando com negrito.
     """
@@ -65,3 +71,28 @@ def gerar_sugestao(aparelho, redirecionamento):
         return dados, resposta.text.strip()
     except Exception as e:
         return dados, f"Erro ao gerar sugestão: {e}"
+
+def gerar_sugestao_comodo(comodo, dispositivos_ativos, dados):
+    prompt = f"""
+    Você é um assistente de energia doméstica.
+    Analise **apenas o cômodo {comodo.upper()}** e os aparelhos ligados nele.
+
+    Com base nos dados abaixo, sugira recomendações simples:
+    - Diga quais aparelhos podem ser desligados para economizar.
+    - Diga se algum deve permanecer ligado e por quê.
+    - Evite números, foque em frases claras e práticas.
+
+    Dados do cômodo:
+    - Dispositivos ativos: {', '.join(dispositivos_ativos) if dispositivos_ativos else "nenhum"}
+    - Consumo total do cômodo: {dados['consumo_total']} W
+    - Geração solar atual: {dados['geracao_solar']} W
+    - Bateria: {dados['nivel_bateria']} Wh ({dados['bateria_soc']}%)
+
+    Responda em tópicos.
+    """
+
+    try:
+        resposta = model.generate_content(prompt)
+        return resposta.text.strip()
+    except Exception as e:
+        return f"Erro ao gerar sugestão para o cômodo: {e}"

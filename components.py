@@ -99,8 +99,8 @@ def sidebar(pagina):
                 <a href="/?page=Bateria" target="_self">
                     <div class="side-element" style="background-color: {'#025373' if pagina == 'Bateria' else 'inherit'}">Bateria</div>
                 </a>
-                <a href="/?page=Gerenciamento" target="_self">
-                    <div class="side-element" style="background-color: {'#025373' if pagina == 'Gerenciamento' else 'inherit'}">Gerenciamento</div>
+                <a href="/?page=gerenciamento" target="_self">
+                    <div class="side-element" style="background-color: {'#025373' if pagina == 'gerenciamento' else 'inherit'}">Gerenciamento</div>
                 </a>
                 <a href="/?page=Painel Solar" target="_self">
                     <div class="side-element" style="background-color: {'#025373' if pagina == 'Painel Solar' else 'inherit'}">Painel Solar</div>

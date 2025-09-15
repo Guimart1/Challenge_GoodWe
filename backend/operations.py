@@ -2,7 +2,8 @@ import requests
 from backend.config import API_KEY, CIDADE, GERACAO_MAXIMA_SOLAR
 import streamlit as st
 from datetime import datetime
-
+from backend.conexao_sems import crosslogin, get_inverter_list_demo, get_full_battery_status
+import os
 
 def obter_dados_clima():
     url = f"http://api.weatherapi.com/v1/current.json?key={API_KEY}&q={CIDADE}&lang=pt"
@@ -53,7 +54,14 @@ def calcular_uso_casa(geracao, consumo, nivel_bateria):
     else:
         return energia_necessaria, nivel_bateria, False
 
-
+def obter_nivel_bateria_real():
+    acc = os.getenv("SEMS_ACCOUNT", "demo@goodwe.com")
+    pwd = os.getenv("SEMS_PASSWORD", "GoodweSems123!@#")
+    token = crosslogin(acc, pwd, region="us")
+    inversores = get_inverter_list_demo(token, region="eu")
+    inverter_id = inversores["data"][0]["id"]
+    status = get_full_battery_status(token, inverter_id, region="eu")
+    return status["soc"]
 
 
 

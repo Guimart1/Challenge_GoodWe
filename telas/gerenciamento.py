@@ -1,9 +1,20 @@
 import streamlit as st
-from backend.config import APARELHOS, CONSUMO_STANDBY
+import os
+import requests
+from backend.config import APARELHOS, CONSUMO_STANDBY, CAPACIDADE_BATERIA
+from backend.assistente_energia import gerar_sugestao_comodo
+from backend.simulador import simular
+from backend.conexao_sems import crosslogin, get_inverter_list_demo, get_full_battery_status
+from backend.estado_dispositivos import toggle_dispositivo, get_dispositivos_ativos
 import base64
 
 
 def container_gerenciamento():
+    if "dispositivos_estado" not in st.session_state:
+        st.session_state["dispositivos_estado"] = {
+            comodo: {chave: False for chave in APARELHOS.get(comodo, {})}
+            for comodo in APARELHOS
+        }
     # --- CONFIGURAÇÃO DA PÁGINA ---
     st.set_page_config(
         page_title="Dashboard de Energia",
@@ -176,7 +187,8 @@ def container_gerenciamento():
 
             /* --- Estilos da Seção de Recomendações --- */
             .recommendations-container {
-                height: 250px; /* Altura ajustável */
+                min-height: 250px; /* Altura ajustável */
+                height:auto;
                 display: flex;
                 align-items: flex-start;
                 padding-left: 25px;
@@ -196,22 +208,33 @@ def container_gerenciamento():
 
     # --- LAYOUT DA PÁGINA ---
 
-    # 1. Header (Navbar)
-    # Adicionado link ao ícone da cozinha ---
-    # O ícone da cozinha agora é um link que abre uma nova aba com o parâmetro 'page=kitchen'
     st.markdown(f"""
         <div class="navbar">
             <div class="nav-icons hamburger">
-                <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="18" y2="18"/></svg>
+                <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32"
+                     viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                     stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                     <line x1="4" x2="20" y1="12" y2="12"/>
+                     <line x1="4" x2="20" y1="6" y2="6"/>
+                     <line x1="4" x2="20" y1="18" y2="18"/>
+                </svg>
             </div>
             <div class="nav-icons">
-                <div class="icon-circle active"><img src="{icon_sofa}"></div>
-                <a href="?page=kitchen" target="_blank" style="text-decoration: none;">
+                <a href="?page=gerenciamento&room=sala" target="_self">
+                    <div class="icon-circle"><img src="{icon_sofa}"></div>
+                </a>
+                <a href="?page=gerenciamento&room=cozinha" target="_self">
                     <div class="icon-circle"><img src="{icon_kitchen}"></div>
                 </a>
-                <div class="icon-circle"><img src="{icon_bed}"></div>
-                <div class="icon-circle"><img src="{icon_shower}"></div>
-                <div class="icon-circle"><img src="{icon_car}"></div>
+                <a href="?page=gerenciamento&room=quarto" target="_self">
+                    <div class="icon-circle"><img src="{icon_bed}"></div>
+                </a>
+                <a href="?page=gerenciamento&room=banheiro" target="_self">
+                    <div class="icon-circle"><img src="{icon_shower}"></div>
+                </a>
+                <a href="?page=gerenciamento&room=garagem" target="_self">
+                    <div class="icon-circle"><img src="{icon_car}"></div>
+                </a>
             </div>
             <div class="nav-icons plus">
                 <div class="icon-circle"><img src="{icon_plus}"></div>
@@ -219,54 +242,60 @@ def container_gerenciamento():
         </div>
     """, unsafe_allow_html=True)
 
-    # 2. Corpo Principal com Colunas
-    col1, col2 = st.columns([2, 1])  # Coluna da esquerda é 2x mais larga que a da direita
+    # Corpo principal
+    col1, col2 = st.columns([2, 1])
 
     with col1:
-        # 2.1. Seção de Eletrônicos Ativos
-        st.markdown('<div class="section-title">ELETRÔNICOS ATIVOS</div>', unsafe_allow_html=True)
+        page = st.query_params.get("page", "gerenciamento").lower()
 
-        # RENDERIZAÇÃO CONDICIONAL ---
-        # Se a URL contiver 'page=kitchen', exibe o container em branco. Caso contrário, exibe o conteúdo padrão.
-        if page_state == "kitchen":
-            eletronicos_html = """
-                <div class="gray-container" style="height: 357px; display: flex; align-items: center; justify-content: center;">
-                    <p style='color: #888; font-weight: bold;'>Nenhum dispositivo ativo neste cômodo.</p>
+        if page == "gerenciamento":
+            comodo = st.query_params.get("room", "sala").lower()
+            dispositivos = APARELHOS.get(comodo, {})
+
+            st.markdown(f"<div class='section-title'>ELETRÔNICOS ATIVOS — {comodo.upper()}</div>",
+                        unsafe_allow_html=True)
+            consumo_total = CONSUMO_STANDBY
+
+            for chave, consumo in dispositivos.items():
+                ligado = toggle_dispositivo(comodo, chave)
+
+                cor = "#4CAF50" if ligado else "#F44336"
+                estado = "Ligado" if ligado else "Desligado"
+                nome_formatado = chave.replace("_", " ").upper()
+
+                if ligado:
+                    consumo_total += consumo
+
+                st.markdown(f"""
+                    <div class="device-button">
+                        <div class="icon-square"><img src="{icon_lightning}"></div>
+                        <div class="text">{nome_formatado} - 
+                        <span style='color:{cor}; font-weight:bold;'>{estado}</span></div>
+                    </div>
+                """, unsafe_allow_html=True)
+            # Gera sugestão com base nos dados reais
+            try:
+                token = crosslogin(os.getenv("SEMS_ACCOUNT", "demo@goodwe.com"),
+                                   os.getenv("SEMS_PASSWORD", "GoodweSems123!@#"))
+                inverters = get_inverter_list_demo(token)
+                inverter_id = inverters["data"][0]["id"]
+                status_bateria = get_full_battery_status(token, inverter_id)
+                soc_bateria = status_bateria.get("soc", 0)
+                nivel_bateria_real = CAPACIDADE_BATERIA * (soc_bateria / 100)
+
+                dados = simular(comodo, "", "", nivel_bateria_real)
+                dispositivos_ativos = get_dispositivos_ativos(comodo)
+                sugestao_comodo = gerar_sugestao_comodo(comodo, dispositivos_ativos, dados)
+
+            except (requests.exceptions.RequestException, RuntimeError) as e:
+                sugestao_comodo = f"Não foi possível obter dados da bateria. Erro: {e}"
+
+            st.markdown('<div class="section-title">RECOMENDAÇÕES</div>', unsafe_allow_html=True)
+            st.markdown(f"""
+                <div class="gray-container recommendations-container">
+                    <p>{sugestao_comodo}</p>
                 </div>
-            """
-        else:
-            eletronicos_html = f"""
-                <div class="gray-container">
-                    <a href="#" class="device-button">
-                        <div class="icon-square"><img src="{icon_lightning}"></div>
-                        <div class="text">LÂMPADA SALA DE ESTAR</div>
-                    </a>
-                    <a href="#" class="device-button">
-                        <div class="icon-square"><img src="{icon_lightning}"></div>
-                        <div class="text">TELEVISÃO SALA DE ESTAR</div>
-                    </a>
-                    <a href="#" class="device-button">
-                        <div class="icon-square"><img src="{icon_lightning}"></div>
-                        <div class="text">VENTILADOR SALA DE ESTAR</div>
-                    </a>
-                    <a href="#" class="device-button" style="margin-bottom: 0;">
-                        <div class="icon-square"><img src="{icon_lightning}"></div>
-                        <div class="text">CONSOLE SALA DE ESTAR</div>
-                    </a>
-                </div>
-            """
-        st.markdown(eletronicos_html, unsafe_allow_html=True)
-
-        st.write("---")  # Espaçador visual
-
-        # 2.2. Seção de Recomendações
-        st.markdown('<div class="section-title">RECOMENDAÇÕES</div>', unsafe_allow_html=True)
-        st.markdown("""
-            <div class="gray-container recommendations-container">
-                <p>Nesta semana, notamos um consumo elevado em sua residência, principalmente devido ao uso combinado do console, televisão e ventilador. Em comparação com a semana anterior, sugerimos uma redução no uso do ventilador para diminuir sua conta de energia. Pequenas mudanças de hábito, como desligar o aparelho ao sair do ambiente, podem gerar uma economia significativa.</p>
-            </div>
-        """, unsafe_allow_html=True)
-
+            """, unsafe_allow_html=True)
     with col2:
         # 2.3. Seção de Redirecionamento
         st.markdown('<div class="section-title">REDIRECIONAMENTO</div>', unsafe_allow_html=True)

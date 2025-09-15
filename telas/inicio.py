@@ -2,8 +2,10 @@ import pandas as pd
 import plotly.express as px
 from backend.simulador import *
 from backend.assistente_energia import *
-from backend import *
+from backend.conexao_sems import *
+from backend.config import *
 import base64
+
 
 def local_font_to_base64(path):
     with open(path, "rb") as f:
@@ -33,11 +35,25 @@ def clima_icon(condicao):
     else:
         return icones.get(condicao, "")
 
-def pizza_chart():  # GRÁFICO DE PIZZA POR CONSUMO
-    data = pd.DataFrame({'Categoria': categorias, 'Consumo': valores})
 
+def pizza_chart():
+    consumo_por_aparelho = {}
 
-    data = data[data['Categoria'] != "nenhum"]
+    for comodo, dispositivos in APARELHOS.items():
+        for aparelho, consumo in dispositivos.items():
+            # Usa apenas o nome do aparelho para o gráfico
+            nome_limpo = aparelho.replace('_', ' ').title()
+
+            # Soma o consumo caso o mesmo aparelho apareça em cômodos diferentes
+            consumo_por_aparelho[nome_limpo] = consumo_por_aparelho.get(nome_limpo, 0) + consumo
+
+    if not consumo_por_aparelho:
+        st.info("Nenhum aparelho encontrado para exibir no gráfico.")
+        return
+
+    # Converte o dicionário para um DataFrame, ordena e pega os 5 maiores
+    data = pd.DataFrame(list(consumo_por_aparelho.items()), columns=['Categoria', 'Consumo'])
+    data = data.sort_values(by='Consumo', ascending=False).head(5)
 
     fig = px.pie(data, names='Categoria', values='Consumo')
     fig.update_layout(
@@ -114,7 +130,7 @@ def bateria_visual(nivel):
     """, unsafe_allow_html=True)
 
 
-def container_dash(dados): # CONTAINER DE INFOS PRINCIPAIS
+def container_dash(dados, status): # CONTAINER DE INFOS PRINCIPAIS
     font_base64 = local_font_to_base64("./static/fonts/DS-DIGIB.TTF")
     st.markdown(f"""
     <style>
@@ -139,6 +155,7 @@ def container_dash(dados): # CONTAINER DE INFOS PRINCIPAIS
         .chart-container {{
             display: flex;
             justify-content: center;
+            align-items: center;
         }}
         .chart-text {{
             width: 70%;
@@ -146,6 +163,7 @@ def container_dash(dados): # CONTAINER DE INFOS PRINCIPAIS
             background-color: #F0CA1F ;
             border-radius: 50px;
             font-weight: bold;
+            height: 80%;
         }}
     </style>
     """, unsafe_allow_html=True)
@@ -175,43 +193,82 @@ def container_dash(dados): # CONTAINER DE INFOS PRINCIPAIS
         st.markdown("""
             <div class="chart-container">
                 <div class="chart-text">
-                    <h2 class="ms-4 fs-3">Consumo de Energia</h2>    
+                    <h2 class="ms-4 fs-4">CONSUMO DE ENERGIA</h2>    
                 </div>
             </div>
         """, unsafe_allow_html=True)
 
         pizza_chart()
 
+    nivel_bateria = status["soc"] / 100 * CAPACIDADE_BATERIA  # Convertendo % para Wh
     with col3:
         st.markdown(f"""
                     <div class="chart-container">
                         <div class="chart-text">
-                            <h2 class="ms-4 fs-3">Nivel da Bateria</h2>    
+                            <h2 class="ms-4 fs-4">NIVEL DA BATERIA</h2>    
                         </div>
                     </div>
                 """, unsafe_allow_html=True)
-        bateria_visual(dados['nivel_bateria'])
+        bateria_visual(nivel_bateria)
 
 
-def container_text_ia(sugestao):
+def container_text_ia():
     col1, col2 = st.columns(2)
+    st.markdown("""
+        <style>
+            .ai-container {
+                background: #e9e9ed;
+                border-radius: 15px;
+                padding: 20px;
+                box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            }
+            .ai-text {
+                font-weight: 600;
+                color: #555555 !important;
+            }
+            .consumo-click {
+                cursor: pointer;
+                color: #000 !important;
+                text-decoration: none;
+            }
+        </style>
+        """, unsafe_allow_html=True)
+
     with col1:
-        st.markdown(f"""
-            <div class="chart-container justify-content-start mt-5">
-                <div class="chart-text">
-                    <h2 class="ms-4 fs-3">Sugestão para consumo</h2>    
+        st.markdown("""
+            <div class="chart-container justify-content-start">
+                <div class="chart-text sugestao">
+                    <h2 class="ms-4 fs-4">SUGESTÃO PARA CONSUMO</h2>
                 </div>
-            </div>
-            <div class="ai-text d-flex justify-content-center mt-5">
-                {sugestao}
             </div>
         """, unsafe_allow_html=True)
 
+        # Exibe sugestão se já estiver gerada
+        if "sugestao" in st.session_state:
+            st.markdown(f"""
+                <div class="ai-container mt-5">
+                    <p class="ai-text">{st.session_state.sugestao}</p>
+                </div>
+            """, unsafe_allow_html=True)
+
 
 def container_inicio():
-    aparelhos_lista = list(APARELHOS.keys())
-    aparelho_default = aparelhos_lista[0]
+    acc = "demo@goodwe.com"
+    pwd = "GoodweSems123!@#"
+    token = crosslogin(acc, pwd, region="us")
+    inverters = get_inverter_list_demo(token, region="eu")
+    inverter_id = inverters["data"][0]["id"]
 
+    if "status_bateria" not in st.session_state:
+        st.session_state.status_bateria = get_full_battery_status(token, inverter_id)
+
+    status = st.session_state.status_bateria
+    nivel_bateria_real = status["soc"] / 100 * CAPACIDADE_BATERIA
+
+    comodo = st.query_params.get("page", "sala").lower()
+
+    aparelhos_lista = list(APARELHOS.get(comodo, {}).keys())
+    aparelho_default = aparelhos_lista[0] if aparelhos_lista else "nenhum"
 
     st.session_state.select_aparelho_hidden = aparelho_default
     st.session_state.radio_redirecionamento_hidden = "bateria"
@@ -219,17 +276,17 @@ def container_inicio():
     aparelho = st.session_state.select_aparelho_hidden
     redirecionamento = st.session_state.radio_redirecionamento_hidden
 
-    dados, sugestao = gerar_sugestao(aparelho, redirecionamento)
+    dados, sugestao_padrao = gerar_sugestao(comodo, aparelho, redirecionamento, nivel_bateria_real)
     st.session_state.dados = dados
 
-    container_dash(dados)
-    container_text_ia(sugestao)
+    container_dash(dados, status)
+
+    st.session_state.sugestao = sugestao_padrao
+
+    container_text_ia()
 
 
 
-
-
-    
 
 
 
