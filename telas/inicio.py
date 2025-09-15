@@ -1,18 +1,16 @@
 import pandas as pd
-from datetime import datetime
-import streamlit as st
 import plotly.express as px
-from config import categorias, valores, NIVEL_INICIAL_BATERIA, CAPACIDADE_BATERIA, CONSUMO_STANDBY, APARELHOS
-from backend import obter_dados_clima, calcular_geracao_solar
-
+from backend.simulador import *
+from backend.assistente_energia import *
+from backend import *
 import base64
 
 def local_font_to_base64(path):
     with open(path, "rb") as f:
         return base64.b64encode(f.read()).decode()
+
  # ALTERAR ICONE DE ACORDO COM ESTADO DO CLIMA:
-def clima_icon(dados):
-    condicao = dados["current"]["condition"]["text"]
+def clima_icon(condicao):
     hora = datetime.now().hour
     esta_de_noite = hora < 6 or hora >= 18
 
@@ -35,12 +33,16 @@ def clima_icon(dados):
     else:
         return icones.get(condicao, "")
 
-def pizza_chart(): # GRAFICO DE PIZZA POR CONSUMO
+def pizza_chart():  # GRÁFICO DE PIZZA POR CONSUMO
     data = pd.DataFrame({'Categoria': categorias, 'Consumo': valores})
+
+
+    data = data[data['Categoria'] != "nenhum"]
+
     fig = px.pie(data, names='Categoria', values='Consumo')
     fig.update_layout(
         legend=dict(
-            orientation="h",  # horizontal
+            orientation="h",
             yanchor="bottom",
             y=-0.2,
             xanchor="center",
@@ -49,7 +51,7 @@ def pizza_chart(): # GRAFICO DE PIZZA POR CONSUMO
         )
     )
 
-    return  st.plotly_chart(fig, use_container_width=True)
+    return st.plotly_chart(fig, use_container_width=True)
 
 
 def bateria_visual(nivel):
@@ -60,7 +62,7 @@ def bateria_visual(nivel):
     st.markdown(f"""
     <style>
         [data-testid="stMainBlockContainer"]{{
-            padding-top: 0;
+            padding-top: 5%;
         }}
         .bateria-container{{
             display: flex;
@@ -111,13 +113,9 @@ def bateria_visual(nivel):
 
     """, unsafe_allow_html=True)
 
-def container1(): # CONTAINER DE INFOS PRINCIPAIS
-    font_base64 = local_font_to_base64("./static/fonts/DS-DIGIB.TTF")
-    dados = obter_dados_clima()
-    if not dados:
-        st.error("Erro ao obter dados de clima.")
-        st.stop()
 
+def container_dash(dados): # CONTAINER DE INFOS PRINCIPAIS
+    font_base64 = local_font_to_base64("./static/fonts/DS-DIGIB.TTF")
     st.markdown(f"""
     <style>
         @font-face {{
@@ -152,41 +150,24 @@ def container1(): # CONTAINER DE INFOS PRINCIPAIS
     </style>
     """, unsafe_allow_html=True)
 
-    nivel_bateria = NIVEL_INICIAL_BATERIA
-
     col1, col2, col3 = st.columns(3)
 
-    geracao = calcular_geracao_solar(dados)
+
     def aviso_noite():
         hora_atual = datetime.now().hour
         if hora_atual < 6 or hora_atual > 18:
-            return "Noite"
-
-    aparelho = st.selectbox("Escolha um aparelho:", ["nenhum"] + list(APARELHOS.keys()))
-    consumo = APARELHOS.get(aparelho, 0) + CONSUMO_STANDBY
-    redirecionamento = st.radio("Redirecionar energia para:", ["bateria", "casa"])
-
-    if redirecionamento == "bateria":
-        energia_para_bateria = max(0, geracao - consumo)
-        novo_nivel = min(nivel_bateria + energia_para_bateria, CAPACIDADE_BATERIA)
-        st.success(f"🔋 Energia para bateria: {energia_para_bateria} W | Nível final: {novo_nivel} Wh")
-    else:
-        energia_necessaria = max(0, consumo - geracao)
-        if nivel_bateria >= energia_necessaria:
-            novo_nivel = nivel_bateria - energia_necessaria
-            st.success(f"🏠 Energia da bateria usada: {energia_necessaria} W | Nível final: {novo_nivel} Wh")
+            return "- Noite"
         else:
-            novo_nivel = nivel_bateria
-            st.warning("⚠️ Bateria insuficiente. Usando rede elétrica.")
+            return ""
 
     with col1:
         current_time = datetime.now().strftime("%H:%M")
         st.markdown(f"""
             <div class="container-icon">
                 <h2 class="text-clock mt-5">{current_time}</h2>
-                <div class="mt-3">{clima_icon(dados)}</div>
-                <div class="mt-2 fs-5">{dados['current']['condition']['text']} | {dados['current']['temp_c']}°C</div>
-                <div class="mt-3">Geração atual esperada: {geracao}W - {aviso_noite()}</div>
+                <div class="mt-3">{clima_icon(dados['condicao_clima'])}</div>
+                <div class="mt-2 fs-5">{dados['condicao_clima']} | {dados['temperatura']}°C</div>
+                <div class="mt-3">Geração atual esperada: {dados['geracao_solar']}W {aviso_noite()}</div>
             </div>
         """, unsafe_allow_html=True)
 
@@ -199,7 +180,7 @@ def container1(): # CONTAINER DE INFOS PRINCIPAIS
             </div>
         """, unsafe_allow_html=True)
 
-        pizza_chart()  # Renderiza o gráfico fora do HTML
+        pizza_chart()
 
     with col3:
         st.markdown(f"""
@@ -209,24 +190,46 @@ def container1(): # CONTAINER DE INFOS PRINCIPAIS
                         </div>
                     </div>
                 """, unsafe_allow_html=True)
-        bateria_visual(novo_nivel)
+        bateria_visual(dados['nivel_bateria'])
 
-def container2():
-    col1, col2= st.columns(2)
+
+def container_text_ia(sugestao):
+    col1, col2 = st.columns(2)
     with col1:
-        st.markdown("""
-            <div class="chart-container justify-content-start  mt-5">
-                    <div class="chart-text">
-                        <h2 class="ms-4 fs-3">Sugestão para consumo</h2>    
-                    </div>
+        st.markdown(f"""
+            <div class="chart-container justify-content-start mt-5">
+                <div class="chart-text">
+                    <h2 class="ms-4 fs-3">Sugestão para consumo</h2>    
                 </div>
+            </div>
+            <div class="ai-text d-flex justify-content-center mt-5">
+                {sugestao}
+            </div>
         """, unsafe_allow_html=True)
 
 
+def container_inicio():
+    aparelhos_lista = list(APARELHOS.keys())
+    aparelho_default = aparelhos_lista[0]
+
+
+    st.session_state.select_aparelho_hidden = aparelho_default
+    st.session_state.radio_redirecionamento_hidden = "bateria"
+
+    aparelho = st.session_state.select_aparelho_hidden
+    redirecionamento = st.session_state.radio_redirecionamento_hidden
+
+    dados, sugestao = gerar_sugestao(aparelho, redirecionamento)
+    st.session_state.dados = dados
+
+    container_dash(dados)
+    container_text_ia(sugestao)
 
 
 
 
+
+    
 
 
 

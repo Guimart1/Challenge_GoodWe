@@ -1,7 +1,6 @@
 import requests
-from config import API_KEY, CIDADE, GERACAO_MAXIMA_SOLAR
+from backend.config import API_KEY, CIDADE, GERACAO_MAXIMA_SOLAR
 import streamlit as st
-from config import NIVEL_INICIAL_BATERIA, CAPACIDADE_BATERIA, CONSUMO_STANDBY, APARELHOS
 from datetime import datetime
 
 
@@ -19,7 +18,6 @@ def calcular_geracao_solar(dados_clima):
     if not dados_clima:
         return 0
 
-    # Estimativa: considera dia entre 6h e 18h
     hora_atual = datetime.now().hour
     if hora_atual < 6 or hora_atual > 18:
         return 0
@@ -36,8 +34,24 @@ def calcular_geracao_solar(dados_clima):
     else:
         fator = 0.6
 
-    return round(GERACAO_MAXIMA_SOLAR * fator, 2), hora_atual
+    return round(GERACAO_MAXIMA_SOLAR * fator, 2)
 
+
+def calcular_consumo(aparelho, aparelhos, standby):
+    return aparelhos.get(aparelho, 0) + standby
+
+def calcular_bateria(geracao, consumo, nivel_bateria, capacidade):
+    energia_para_bateria = max(0, geracao - consumo)
+    novo_nivel = min(nivel_bateria + energia_para_bateria, capacidade)
+    return energia_para_bateria, novo_nivel
+
+def calcular_uso_casa(geracao, consumo, nivel_bateria):
+    energia_necessaria = max(0, consumo - geracao)
+    if nivel_bateria >= energia_necessaria:
+        novo_nivel = nivel_bateria - energia_necessaria
+        return energia_necessaria, novo_nivel, True
+    else:
+        return energia_necessaria, nivel_bateria, False
 
 
 
