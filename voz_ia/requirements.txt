@@ -1,0 +1,5 @@
+streamlit
+speechrecognition
+# elevenlabs
+google-generativeai
+pyaudio
