@@ -1,9 +1,14 @@
 import os
+import streamlit as st
 from dotenv import load_dotenv
 load_dotenv()
 
 # Edite .env.example com sua chave API
-api_key = os.getenv("WEATHER_API_KEY")
+weather_key = os.getenv("WEATHER_API_KEY")
+if not weather_key:
+    st.error("A chave WEATHER_API_KEY não foi configurada. Verifique seu arquivo .env")
+    st.stop()
+
 CIDADE = 'São Paulo'
 
 CAPACIDADE_BATERIA = 10000

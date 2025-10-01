@@ -1,0 +1,13 @@
+elevenlabs
+numpy
+openai-whisper
+pandas
+plotly
+protobuf
+python-dotenv
+requests
+sounddevice
+streamlit
+streamlit-autorefresh
+torch
+whisper

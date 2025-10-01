@@ -1,12 +1,12 @@
 import requests
-from backend.config import API_KEY, CIDADE, GERACAO_MAXIMA_SOLAR
+from backend.config import weather_key, CIDADE, GERACAO_MAXIMA_SOLAR
 import streamlit as st
 from datetime import datetime
 from backend.conexao_sems import crosslogin, get_inverter_list_demo, get_full_battery_status
 import os
 
 def obter_dados_clima():
-    url = f"http://api.weatherapi.com/v1/current.json?key={API_KEY}&q={CIDADE}&lang=pt"
+    url = f"http://api.weatherapi.com/v1/current.json?key={weather_key}&q={CIDADE}&lang=pt"
     try:
         response = requests.get(url)
         response.raise_for_status()
