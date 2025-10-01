@@ -2,6 +2,7 @@ from elevenlabs.client import ElevenLabs
 from io import BytesIO
 import os
 
+# Edite .env.example com sua chave API
 elevenlabs_key = os.getenv("ELEVENLABS_API_KEY")
 
 def falar_resposta(texto):

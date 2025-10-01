@@ -5,6 +5,7 @@ from backend.operations import *
 from dotenv import load_dotenv
 load_dotenv()
 
+# Edite .env.example com sua chave API
 api_key = os.getenv("WEATHER_API_KEY")
 CIDADE = "Sao Paulo"
 
