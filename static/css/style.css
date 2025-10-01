@@ -1,0 +1,273 @@
+/* --- GERAL & FONTES --- */
+@font-face {
+    font-family: "Digital";
+    src: url(../fonts/DS-DIGIB.TTF) format('truetype');
+}
+
+body {
+    background-color: #f8f9fa;
+}
+
+/* --- SIDEBAR --- */
+.sidebar {
+    width: 280px;
+    height: 100vh;
+    background-color: #022840;
+    color: white;
+}
+.sidebar-title {
+    font-size: 2em;
+    color: #f5a623;
+    text-align: center;
+    font-family: 'Lexend', sans-serif;
+    margin-bottom: 20px;
+}
+.sidebar .nav-link {
+    color: white;
+    font-size: 1.2em;
+    border-radius: 10px;
+    margin-bottom: 5px;
+}
+.sidebar .nav-link:hover {
+    background-color: #025373;
+    color: #e0e0e0;
+}
+.sidebar .nav-link.active {
+    background-color: #025373 !important;
+    font-weight: bold;
+}
+
+/* --- CONTEÚDO PRINCIPAL --- */
+.main-content {
+    width: calc(100% - 280px);
+}
+
+.section-title {
+    background: #FFD51C;
+    padding: 10px 30px;
+    border-radius: 28px;
+    font-size: 1.4em;
+    font-weight: bold;
+    color: black;
+    display: inline-block;
+    margin-bottom: 15px;
+}
+.title-container {
+    width: auto;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+/* --- PÁGINA INICIAL --- */
+.text-clock {
+    font-family: "Digital", sans-serif;
+    font-size: 5em;
+    color: #000;
+    font-weight: bold;
+    text-align: center;
+}
+.container-icon {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    height: 100%;
+    font-weight: bold;
+}
+.blue-divider {
+    width: 100%;
+    height: 3px;
+    background-color: #022840;
+    margin-top: 20px;
+    margin-bottom: 20px;
+}
+.gray-container {
+    background: #e9e9ed;
+    border-radius: 15px;
+    padding: 20px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+.recommendations-container {
+    min-height: 250px;
+    height: auto;
+    display: flex;
+    align-items: flex-start;
+    padding-left: 25px;
+}
+.recommendations-container p {
+    font-size: 1.1em;
+    font-weight: bold;
+    color: #555;
+}
+
+/* --- COMPONENTE BATERIA --- */
+.bateria-container{
+    display: flex; justify-content: center; align-items: center; height: 300px;
+}
+.bateria {
+    width: 200px; height: 100px; border: 5px solid #333;
+    border-radius: 10px; position: relative; background-color: #ddd; margin: auto;
+}
+.bateria::after {
+    content: ""; position: absolute; top: 35%; right: -30px;
+    width: 5px; height: 30px; background: #333; border-radius: 3px;
+}
+.nivel {
+    height: 100%; border-radius: 5px; transition: 1s;
+}
+.texto-bateria {
+    text-align: center; font-weight: bold; margin-top: 10px;
+}
+
+/* --- PÁGINA GERENCIAMENTO --- */
+.btn-dispositivo {
+    border-radius: 25px;
+    padding: 10px 15px;
+    font-size: 1.1em;
+    font-weight: bold;
+    border: none;
+    transition: opacity 0.3s;
+    height: 60px;
+}
+.btn-dispositivo.ligado {
+    background-color: #022840; /* Azul escuro */
+    color: #F0CA1F; /* Amarelo */
+}
+.btn-dispositivo.desligado {
+    background-color: #4a5568; /* Cinza escuro */
+    color: white;
+}
+.btn-dispositivo:hover {
+    opacity: 0.8;
+}
+
+.status-container {
+    padding: 20px;
+    border: 1px solid #ddd;
+    border-radius: 15px;
+    background-color: #fff;
+    text-align: center;
+}
+.status-container h3 {
+    font-size: 1.2em;
+    color: #555;
+}
+.status-container p {
+    font-size: 1.8em;
+    font-weight: bold;
+    color: #022840;
+}
+.navbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px;
+    background-color: #FFFFFF;
+    border-radius: 50px;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    width: 100%;
+    margin-bottom: 30px;
+}
+.nav-icons {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+.icon-circle {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    border: 3px solid #022840;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+.icon-circle img {
+    width: 32px;
+    height: 32px;
+}
+.icon-circle.active {
+    background-color: #FFD51C; /* Amarelo */
+}
+.icon-circle:not(.active):hover {
+    background-color: #e0e0e0;
+}
+
+/* Reset de estilo para o botão parecer um div */
+.icon-button {
+    background: none;
+    padding: 0;
+    border: none;
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+    outline: inherit;
+}
+.device-button {
+    display: flex;
+    align-items: center;
+    background: #022840;
+    border: 1px solid #ddd; /* Borda sutil */
+    width: 100%;
+    padding: 10px 15px;
+    border-radius: 25px;
+    color: #f8f9fa;
+    text-decoration: none;
+    transition: all 0.3s;
+    margin-bottom: 15px;
+    text-align: left;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+.device-button:hover {
+    opacity: 0.8;
+    cursor: pointer;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+.device-button .icon-square {
+    background: #f8f9fa; /* Fundo azul para o ícone */
+    width: 48px;
+    height: 48px;
+    border-radius: 10px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-right: 20px;
+}
+.device-button .icon-square img {
+    width: 35px;
+    height: 35px;
+}
+.device-button .text {
+    font-size: 1.1em;
+    font-weight: bold;
+}
+.device-button .status-text {
+    font-weight: bold;
+}
+.device-button .status-text.ligado {
+    color: #4CAF50; /* Verde */
+}
+.device-button .status-text.desligado {
+    color: #F44336; /* Vermelho */
+}
+/* ------------------------------------------------ */
+
+.status-container {
+    padding: 20px;
+    border: 1px solid #ddd;
+    border-radius: 15px;
+    background-color: #fff;
+    text-align: center;
+}
+.status-container h3 {
+    font-size: 1.2em;
+    color: #555;
+}
+.status-container p {
+    font-size: 1.8em;
+    font-weight: bold;
+    color: #022840;
+}

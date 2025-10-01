@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="navbar">
+    <div class="nav-icons hamburger ps-5">
+        <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="18" y2="18"/></svg>
+    </div>
+
+    <div class="nav-icons">
+        {% for comodo_nav in comodos %}
+            <form method="POST" action="{{ url_for('gerenciamento.select_comodo') }}" class="m-0">
+                <input type="hidden" name="comodo" value="{{ comodo_nav }}">
+                <button type="submit" class="icon-button icon-circle {{ 'active' if comodo_nav == comodo_selecionado else '' }}" title="{{ comodo_nav|title }}">
+                    <img src="{{ icones_comodos[comodo_nav] }}" alt="{{ comodo_nav }}">
+                </button>
+            </form>
+        {% endfor %}
+    </div>
+
+    <div class="nav-icons plus">
+        <div class="icon-circle">
+            <img src="https://static.thenounproject.com/png/2310577-200.png" alt="Adicionar">
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-8">
+        <div class='section-title'>ELETRÔNICOS ATIVOS — {{ comodo_selecionado|upper }}</div>
+        <div class="row">
+
+            {% for chave, detalhes in dispositivos_no_comodo.items() %}
+            <div class="col-md-6 mb-3">
+                <form method="POST" action="{{ url_for('gerenciamento.toggle_device') }}">
+                    <input type="hidden" name="comodo" value="{{ comodo_selecionado }}">
+                    <input type="hidden" name="device" value="{{ chave }}">
+                    {% set ligado = dispositivos_estado[comodo_selecionado][chave] %}
+
+                    <button type="submit" class="device-button">
+                        <div class="icon-square">
+                            <img src="{{ icon_lightning }}" alt="Ícone de energia">
+                        </div>
+                        <div class="text">
+                            {{ chave.replace('_', ' ')|upper }} -
+                            <span class="status-text {{ 'ligado' if ligado else 'desligado' }}">
+                                {{ "Ligado" if ligado else "Desligado" }}
+                            </span>
+                        </div>
+                    </button>
+                </form>
+            </div>
+            {% endfor %}
+
+        </div>
+
+        <div class="section-title" style="margin-top: 15px;">RECOMENDAÇÕES</div>
+        <div class="gray-container recommendations-container">
+            <p>{{ sugestao_comodo }}</p>
+        </div>
+    </div>
+
+    <div class="col-md-4">
+        <div class='section-title'>STATUS DA ENERGIA</div>
+        <div class="status-container">
+            <h3>Nível da Bateria</h3>
+            <p>{{ soc_bateria }}%</p>
+            <hr>
+            <h3>Consumo Atual</h3>
+            <p>{{ "%.0f"|format(consumo_total) }} W</p>
+            <hr>
+            <h3>Tempo Restante Estimado</h3>
+            <p>{{ tempo_restante_formatado }}</p>
+        </div>
+    </div>
+</div>
+{% endblock %}
