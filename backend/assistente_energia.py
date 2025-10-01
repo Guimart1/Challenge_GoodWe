@@ -96,3 +96,8 @@ def gerar_sugestao_comodo(comodo, dispositivos_ativos, dados):
         return resposta.text.strip()
     except Exception as e:
         return f"Erro ao gerar sugestão para o cômodo: {e}"
+    
+def conversar_com_ia(prompt):
+    prompt_modificado = f"Responda de forma breve, direta e com no máximo 40 palavras. Pergunta: {prompt}"
+    resposta = model.generate_content(prompt_modificado)
+    return resposta.text
