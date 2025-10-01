@@ -2,8 +2,10 @@ import random
 import requests
 from backend.config import *
 from backend.operations import *
+from dotenv import load_dotenv
+load_dotenv()
 
-API_KEY = "6ee1bfa2c7c345ad9fa195342250306"
+api_key = os.getenv("WEATHER_API_KEY")
 CIDADE = "Sao Paulo"
 
 

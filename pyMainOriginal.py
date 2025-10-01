@@ -1,7 +1,10 @@
 import random
 import requests
+import os
+from dotenv import load_dotenv
+load_dotenv()
 
-API_KEY = '6ee1bfa2c7c345ad9fa195342250306'
+api_key = os.getenv("WEATHER_API_KEY")
 CIDADE = 'Sao Paulo'
 
 CAPACIDADE_BATERIA = 10000
@@ -18,7 +21,7 @@ APARELHOS = {
 
 
 def obter_dados_clima():
-    url = f"http://api.weatherapi.com/v1/current.json?key={API_KEY}&q={CIDADE}"
+    url = f"http://api.weatherapi.com/v1/current.json?key={api_key}&q={CIDADE}"
     try:
         response = requests.get(url)
         response.raise_for_status()

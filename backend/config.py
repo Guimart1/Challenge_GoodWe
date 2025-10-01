@@ -1,4 +1,8 @@
-API_KEY = '6ee1bfa2c7c345ad9fa195342250306'
+import os
+from dotenv import load_dotenv
+load_dotenv()
+
+api_key = os.getenv("WEATHER_API_KEY")
 CIDADE = 'São Paulo'
 
 CAPACIDADE_BATERIA = 10000

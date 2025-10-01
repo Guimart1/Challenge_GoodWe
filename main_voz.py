@@ -1,9 +1,9 @@
 import streamlit as st
-from voz import ouvir_microfone
+from voz_ia.voz import ouvir_microfone
 from backend.assistente_energia import conversar_com_ia
-from fala import falar_resposta
+from voz_ia.fala import falar_resposta
 import base64
-import time 
+import time
 
 st.set_page_config(page_title=" Assistente de Voz IA", layout="centered")
 st.title(" Assistente de Voz com Gemini")
@@ -13,7 +13,6 @@ if st.button(" Falar com a IA"):
     if comando:
         st.markdown(f" **Você disse:** `{comando}`")
 
-        # if not interpretar_comando(comando):
         resposta = conversar_com_ia(comando)
         st.markdown(f" **IA respondeu:** `{resposta}`")
 

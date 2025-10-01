@@ -1,7 +1,10 @@
 import google.generativeai as genai
 from backend.simulador import *
+import os
+from dotenv import load_dotenv
+load_dotenv()
 
-genai.configure(api_key="AIzaSyA2DjYR_iz9rpho3c53JHSn3MgjIR3Pvsc")
+genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
 
 model = genai.GenerativeModel("gemini-2.5-flash-lite")
 
