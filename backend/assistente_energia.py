@@ -4,6 +4,7 @@ from dotenv import load_dotenv
 from backend.core import *
 load_dotenv()
 
+# Insira sua chave em .env.example e troque o nome do arquivo para .env
 genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
 model = genai.GenerativeModel("gemini-2.5-flash-lite")
 
