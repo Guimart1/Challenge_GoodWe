@@ -12,7 +12,6 @@ gerenciamento_bp = Blueprint('gerenciamento', __name__)
 @gerenciamento_bp.route('/gerenciamento')
 def index():
     # --- ADIÇÃO: Dicionário de Ícones ---
-    # Mapeia o nome do cômodo (como está em APARELHOS) para a URL do ícone.
     icones_comodos = {
         "sala": "https://cdn-icons-png.flaticon.com/512/1010/1010398.png",
         "cozinha": "https://cdn-icons-png.flaticon.com/512/3565/3565450.png",
@@ -23,15 +22,16 @@ def index():
     icon_lightning = "https://static.thenounproject.com/png/2039810-200.png"
     comodo_selecionado = session.get("comodo_selecionado", "sala")
 
-    # Lógica de cálculo (mesma do seu container_gerenciamento)
-    consumo_total = CONSUMO_STANDBY
-    dispositivos_ativos = []
+    # --- MUDANÇA: Lógica de cálculo movida para cima ---
+    # Calcula o consumo total da casa inteira primeiro
+    consumo_total_global = CONSUMO_STANDBY
+    dispositivos_ativos_comodo = []  # Apenas os do cômodo selecionado
     for comodo, dispositivos in session["dispositivos_estado"].items():
         for chave, ligado in dispositivos.items():
             if ligado:
-                consumo_total += APARELHOS.get(comodo, {}).get(chave, 0)
+                consumo_total_global += APARELHOS.get(comodo, {}).get(chave, 0)
                 if comodo == comodo_selecionado:
-                    dispositivos_ativos.append(chave.replace("_", " ").title())
+                    dispositivos_ativos_comodo.append(chave.replace("_", " ").title())
 
     # Busca de dados
     try:
@@ -39,20 +39,36 @@ def index():
         status_bateria = get_battery_status(token)
         soc_bateria = status_bateria.get("soc", 0) if status_bateria else 0
         nivel_bateria_real = CAPACIDADE_BATERIA * (soc_bateria / 100)
-        dados_simulacao = simular(comodo_selecionado, "", "", nivel_bateria_real)
-        sugestao_comodo = gerar_sugestao_comodo(comodo_selecionado, dados_simulacao, dispositivos_ativos)
+        dados_simulacao_comodo = simular(comodo_selecionado, "", "", nivel_bateria_real)
+        dispositivos_disponiveis = list(APARELHOS.get(comodo_selecionado, {}).keys())
+
+        dados_globais = {
+            'consumo_total': consumo_total_global,
+            'soc_bateria': soc_bateria,
+            'geracao_solar': dados_simulacao_comodo.get('geracao_solar', 0)
+        }
+
+        sugestao_comodo = gerar_sugestao_comodo(
+            comodo=comodo_selecionado,
+            dados_comodo=dados_simulacao_comodo,
+            dispositivos_ativos=dispositivos_ativos_comodo,
+            dados_globais=dados_globais,
+            dispositivos_disponiveis=dispositivos_disponiveis  # <-- NOVO PARÂMETRO
+        )
+
     except Exception as e:
         soc_bateria = 10
         nivel_bateria_real = CAPACIDADE_BATERIA * (soc_bateria / 100)
         sugestao_comodo = f"Não foi possível obter dados. Erro: {e}"
+        consumo_total_global = CONSUMO_STANDBY  # Garante que a variável exista em caso de erro
 
     # Cálculo de tempo restante
-    if consumo_total > CONSUMO_STANDBY and nivel_bateria_real > 0:
-        tempo_restante_horas = nivel_bateria_real / consumo_total
+    if consumo_total_global > CONSUMO_STANDBY and nivel_bateria_real > 0:
+        tempo_restante_horas = nivel_bateria_real / consumo_total_global
         horas = int(tempo_restante_horas)
         minutos = int((tempo_restante_horas * 60) % 60)
         tempo_restante_formatado = f"~ {horas}h {minutos}m"
-    elif consumo_total <= CONSUMO_STANDBY:
+    elif consumo_total_global <= CONSUMO_STANDBY:
         tempo_restante_formatado = "Apenas Standby"
     else:
         tempo_restante_formatado = "Bateria Esgotada"
@@ -67,9 +83,8 @@ def index():
                            dispositivos_estado=session["dispositivos_estado"],
                            sugestao_comodo=sugestao_comodo,
                            soc_bateria=soc_bateria,
-                           consumo_total=consumo_total,
+                           consumo_total=consumo_total_global,
                            tempo_restante_formatado=tempo_restante_formatado)
-
 
 @gerenciamento_bp.route('/gerenciamento/select_comodo', methods=['POST'])
 def select_comodo():

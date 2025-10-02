@@ -15,10 +15,11 @@ def create_app():
     # Importa e registra os blueprints
     from blueprints.inicio import inicio_bp
     from blueprints.gerenciamento import gerenciamento_bp
+    from blueprints.voz_bp import voz_bp
 
     app.register_blueprint(inicio_bp)
     app.register_blueprint(gerenciamento_bp)
-
+    app.register_blueprint(voz_bp, url_prefix='/voz')
     # Inicializa o estado dos dispositivos na sessão na primeira requisição
     @app.before_request
     def initialize_session():

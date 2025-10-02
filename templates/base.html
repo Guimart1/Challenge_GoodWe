@@ -33,5 +33,127 @@
             {% block content %}{% endblock %}
         </main>
     </div>
+    <div class="voice-assistant-container">
+    <h4>Assistente de Voz</h4>
+    <div class="mic-toggle-wrapper">
+        <label class="switch">
+            <input type="checkbox" id="micToggle">
+            <span class="slider round"></span>
+        </label>
+        <p id="micStatus">Clique para ativar</p>
+    </div>
+    <div id="voice-output" style="margin-top: 15px;">
+        <p id="transcription-output"></p>
+        <p id="ia-response-output"></p>
+    </div>
+</div>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const micToggle = document.getElementById('micToggle');
+    const micStatus = document.getElementById('micStatus');
+    const transcriptionOutput = document.getElementById('transcription-output');
+    const iaResponseOutput = document.getElementById('ia-response-output');
+
+    let mediaRecorder;
+    let audioChunks = [];
+
+    // Função para converter o áudio para o formato WAV
+    function audioBufferToWav(aBuffer) {
+        let numOfChan = aBuffer.numberOfChannels,
+            len = aBuffer.length * numOfChan * 2,
+            view = new DataView(new ArrayBuffer(44 + len)),
+            offset = 0;
+
+        const writeString = (s) => {
+            for (let i = 0; i < s.length; i++) {
+                view.setUint8(offset + i, s.charCodeAt(i));
+            }
+        };
+
+        writeString('RIFF'); offset += 4;
+        view.setUint32(offset, 36 + len, true); offset += 4;
+        writeString('WAVE'); offset += 4;
+        writeString('fmt '); offset += 4;
+        view.setUint32(offset, 16, true); offset += 4;
+        view.setUint16(offset, 1, true); offset += 2;
+        view.setUint16(offset, numOfChan, true); offset += 2;
+        view.setUint32(offset, aBuffer.sampleRate, true); offset += 4;
+        view.setUint32(offset, aBuffer.sampleRate * 2 * numOfChan, true); offset += 4;
+        view.setUint16(offset, numOfChan * 2, true); offset += 2;
+        view.setUint16(offset, 16, true); offset += 2;
+        writeString('data'); offset += 4;
+        view.setUint32(offset, len, true); offset += 4;
+
+        let pcm = new Int16Array(aBuffer.length * numOfChan);
+        for (let i = 0; i < aBuffer.numberOfChannels; i++) {
+            let channelData = aBuffer.getChannelData(i);
+            for (let j = 0; j < channelData.length; j++) {
+                pcm[j * numOfChan + i] = Math.max(-1, Math.min(1, channelData[j])) * 0x7FFF;
+            }
+        }
+        new Int16Array(view.buffer, 44).set(pcm);
+        return new Blob([view], { type: 'audio/wav' });
+    }
+
+    micToggle.addEventListener('change', async () => {
+        if (micToggle.checked) {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                mediaRecorder = new MediaRecorder(stream);
+                mediaRecorder.ondataavailable = event => audioChunks.push(event.data);
+                mediaRecorder.onstop = processAndSendAudio;
+                mediaRecorder.start();
+                micStatus.textContent = 'Escutando... Fale com a IA';
+                micStatus.classList.add('recording');
+                transcriptionOutput.textContent = '';
+                iaResponseOutput.textContent = '';
+            } catch (err) {
+                console.error("Erro ao acessar microfone:", err);
+                micStatus.textContent = 'Erro no microfone';
+                micToggle.checked = false;
+            }
+        } else {
+            if (mediaRecorder && mediaRecorder.state === 'recording') {
+                mediaRecorder.stop();
+                micStatus.textContent = 'Convertendo e Processando...';
+                micStatus.classList.remove('recording');
+            }
+        }
+    });
+
+    async function processAndSendAudio() {
+        const audioBlobWebM = new Blob(audioChunks, { type: 'audio/webm' });
+        audioChunks = [];
+
+        // Converte o Blob WebM para WAV
+        const audioContext = new AudioContext();
+        const arrayBuffer = await audioBlobWebM.arrayBuffer();
+        const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+        const audioBlobWav = audioBufferToWav(audioBuffer);
+
+        const formData = new FormData();
+        formData.append('audio_data', audioBlobWav);
+
+        try {
+            const response = await fetch('/voz/processar-voz', { method: 'POST', body: formData });
+            if (!response.ok) throw new Error(`Erro: ${response.statusText}`);
+            const result = await response.json();
+
+            transcriptionOutput.innerHTML = `<strong>Você disse:</strong> ${result.texto_transcrito}`;
+            iaResponseOutput.innerHTML = `<strong>IA:</strong> ${result.resposta_ia}`;
+            micStatus.textContent = 'Clique para ativar';
+
+            if (result.audio_resposta_b64) {
+                const audio = new Audio(`data:audio/mp3;base64,${result.audio_resposta_b64}`);
+                audio.play();
+            }
+        } catch (error) {
+            console.error('Erro ao enviar áudio:', error);
+            micStatus.textContent = 'Erro ao processar';
+            iaResponseOutput.textContent = 'Não foi possível obter uma resposta.';
+        }
+    }
+});
+</script>
 </body>
 </html>

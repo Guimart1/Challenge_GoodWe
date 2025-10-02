@@ -62,7 +62,7 @@ def get_full_battery_status(token: str, inverter_id: str, region: Region = "eu")
 
     return {
         # -------- Seção 1 – Status em tempo real --------
-        "soc": safe_get(data, "batterySoc", round(random.uniform(40, 90), 1)),
+        "soc": safe_get(data, "batterySoc", round(random.uniform(40, 40), 1)),
         "p_instant": (safe_get(data, "pcharge", 0) or 0) - (safe_get(data, "pdischarge", 0) or 0)
                      or round(random.uniform(-2.0, 2.0), 2),  # kW (+ carrega, - descarrega)
         "flux": {

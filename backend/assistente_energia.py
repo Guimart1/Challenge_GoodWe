@@ -2,7 +2,6 @@ import os
 import google.generativeai as genai
 from dotenv import load_dotenv
 from backend.core import *
-
 load_dotenv()
 
 genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
@@ -39,22 +38,16 @@ model = genai.GenerativeModel("gemini-2.5-flash-lite")
 # except Exception as e:
 #     print("Erro ao conectar com a API Gemini:", e)
 
+# backend/assistente_energia.py
+
 def gerar_sugestao(dados_simulacao, dispositivos_ativos):
     """
-    Gera uma sugestão de otimização de energia com base nos dados da simulação.
-
-    Args:
-        dados_simulacao (dict): Dados da simulação obtidos da função simular().
-        dispositivos_ativos (list): Lista de nomes dos dispositivos ligados.
-
-    Returns:
-        tuple: (dict de dados, str de resposta) ou (dict de dados, str de erro)
+    Gera uma sugestão de otimização de energia em um formato de texto específico.
     """
     if not dados_simulacao:
-        return None, "Erro ao obter dados da simulação."
+        return "Erro ao obter dados da simulação."
 
-    # Lógica para determinar o estado da energia com base nos dados.
-    # Isso torna as instruções para a IA mais diretas e elimina a necessidade de números no prompt.
+    # A lógica de status continua a mesma
     if dados_simulacao['geracao_solar'] > 400:
         geracao_solar_status = "alta"
     elif dados_simulacao['geracao_solar'] > 150:
@@ -69,66 +62,86 @@ def gerar_sugestao(dados_simulacao, dispositivos_ativos):
     else:
         bateria_status = "carga baixa"
 
+    # --- PROMPT MODIFICADO PARA GERAR TEXTO FORMATADO ---
     prompt = f"""
-    Você é um assistente de energia doméstica focado em eficiência.
-    Sua única tarefa é dar sugestões para ligar ou desligar aparelhos.
+    Analise os dados de energia e retorne uma resposta em texto simples, seguindo o formato obrigatório abaixo.
 
-    Instruções estritas para a resposta:
-    - NUNCA USE NÚMEROS na sua resposta, de forma alguma. Use apenas termos como "alta", "baixa" ou "boa".
-    - Use tópicos com um hífen (-) e negrito para destacar os aparelhos. Use tópicos para cada um dos aparelhos.
-    - Baseie suas sugestões nos seguintes dados, mas deixe os ocultos:
-        - Geração solar: {geracao_solar_status}
-        - Bateria: {bateria_status}
-        - Dispositivos ativos: {', '.join(dispositivos_ativos) if dispositivos_ativos else 'nenhum'}
-        - Clima: {dados_simulacao['condicao_clima']}
+    Dados de entrada (use para basear sua resposta, mas não os mostre):
+    - Geração solar: {geracao_solar_status}
+    - Bateria: {bateria_status}
+    - Dispositivos ativos: {', '.join(dispositivos_ativos) if dispositivos_ativos else 'nenhum'}
+    - Clima: {dados_simulacao['condicao_clima']}
 
-    Siga essas regras de forma rigorosa.
+    FORMATO DE SAÍDA:
+    [Frase resumindo o consumo atual da casa]
+    [Tópicos de aparelhos para desligar, se consumo estiver alto, bateria baixa]
+    [Frase resumindo clima e geração]
+    - Regras de consumo geral: até 1000W = baixo; de 1000 até 2500w = médio, de 3000 para cima = Alto. 
+    Se o nível estiver alto, faça sugestões para desligar aparelhos que mais estão consumindo.
     """
+
     try:
         resposta = model.generate_content(prompt)
-        resposta_visual = resposta.text.strip()
-        return resposta_visual
+        return resposta.text.strip()
     except Exception as e:
         return f"Erro ao gerar sugestão: {e}"
 
 
-def gerar_sugestao_comodo(comodo, dados_comodo, dispositivos_ativos):
+def gerar_sugestao_comodo(comodo, dados_comodo, dispositivos_ativos, dados_globais, dispositivos_disponiveis):
     """
-    Gera uma sugestão de otimização de energia para um cômodo específico.
-
-    Args:
-        comodo (str): Nome do cômodo a ser analisado.
-        dados_comodo (dict): Dicionário com consumo, geração solar e dados da bateria.
-        dispositivos_ativos (list): Lista de nomes dos dispositivos ligados no cômodo.
-
-    Returns:
-        str: Resposta da IA com sugestões ou mensagem de erro.
+    Gera uma sugestão para um cômodo, focando na relação entre consumo e nível da bateria.
     """
+    # A lógica de status continua a mesma
+    if dados_globais['geracao_solar'] > 400:
+        geracao_solar_status = "alta"
+    elif dados_globais['geracao_solar'] > 150:
+        geracao_solar_status = "moderada"
+    else:
+        geracao_solar_status = "baixa"
+
+    if dados_globais['soc_bateria'] > 80:
+        bateria_status = "carga excelente"
+    elif dados_globais['soc_bateria'] >= 40:
+        bateria_status = "carga boa"
+    else:
+        bateria_status = "carga baixa"
+
+    # --- PROMPT ATUALIZADO COM NOVA LÓGICA ---
     prompt = f"""
-    Você é um assistente de energia doméstica.
-    Analise **apenas o cômodo {comodo.upper()}** e os aparelhos ligados nele.
+    Você é um sistema lógico de gerenciamento de energia. Sua tarefa é analisar os dados e retornar APENAS o texto no formato especificado, sem conversas.
+    O princípio mais importante é o equilíbrio entre o CONSUMO TOTAL e o NÍVEL DA BATERIA.
 
-    Com base nos dados abaixo, sugira recomendações simples:
-    - Diga quais aparelhos podem ser desligados para economizar.
-    - Diga se algum deve permanecer ligado e por quê.
-    - Evite números, foque em frases claras e práticas.
+    **DADOS GLOBAIS DA CASA:**
+    - Geração Solar: {geracao_solar_status}
+    - Nível da Bateria: {bateria_status}
+    - Consumo Total da Casa: {dados_globais['consumo_total']} W
 
-    Dados do cômodo:
-    - Dispositivos ativos: {', '.join(dispositivos_ativos) if dispositivos_ativos else "nenhum"}
-    - Consumo total do cômodo: {dados_comodo['consumo_total']} W
-    - Geração solar atual: {dados_comodo['geracao_solar']} W
-    - Bateria: {dados_comodo['nivel_bateria']} Wh ({dados_comodo['bateria_soc']}%)
+    **DADOS DO CÔMODO ATUAL: "{comodo.upper()}"**
+    - Dispositivos Disponíveis: {', '.join(dispositivos_disponiveis) if dispositivos_disponiveis else "nenhum"}
+    - Dispositivos Ativos Agora: {', '.join(dispositivos_ativos) if dispositivos_ativos else "nenhum"}
 
-    Responda em tópicos.
+    **FORMATO DE SAÍDA OBRIGATÓRIO:**
+    Sugestões para {comodo.title()}:
+    - "Nome do Aparelho": ligar/desligar
+    (Se não houver sugestões, escreva: Nenhuma ação recomendada neste cômodo.)
+
+    Resumo Geral da Casa:
+    - [Escreva aqui uma única frase resumindo o estado energético e uma recomendação geral]
+
+    **REGRAS ESTRITAS DE DECISÃO:**
+    1.  **CENÁRIO DE ALERTA (Bateria Baixa):** Se o `Nível da Bateria` for 'carga baixa', sugira DESLIGAR aparelhos de alto consumo que estejam ativos no cômodo.
+    2.  **CENÁRIO DE OPORTUNIDADE (Excedente de Energia):** Se o `Nível da Bateria` for 'carga excelente' E a `Geração Solar` for 'alta', sugira LIGAR um aparelho útil da lista de 'Dispositivos Disponíveis' que esteja desligado.
+    3.  **CENÁRIO DE OTIMIZAÇÃO (Consumo Alto):** Se o `Consumo Total da Casa` for maior que 2000W e a `Geração Solar` não for 'alta', sugira DESLIGAR aparelhos não essenciais no cômodo para aliviar a carga.
+    4.  **REGRA DE OURO:** NUNCA sugira uma ação para um aparelho que já está nesse estado (não sugira "ligar" algo que já está ativo).
+    5.  Siga o formato de saída RIGOROSAMENTE.
     """
-
     try:
         resposta = model.generate_content(prompt)
-        # Remove os caracteres de formatação Markdown da resposta da IA.
-        resposta_limpa = resposta.text.strip().replace('**', '').replace('*', '').replace('-', '')
-        return resposta_limpa
+        return resposta.text.strip()
     except Exception as e:
         return f"Erro ao gerar sugestão para o cômodo: {e}"
+
+
 
 def conversar_com_ia(prompt):
     prompt_modificado = f"Responda de forma breve, direta e com no máximo 40 palavras. Pergunta: {prompt}"
