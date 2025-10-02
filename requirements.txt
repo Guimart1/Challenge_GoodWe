@@ -1,4 +1,3 @@
-Flask
 elevenlabs
 numpy
 openai-whisper
@@ -8,9 +7,9 @@ protobuf
 python-dotenv
 requests
 sounddevice
-soundfile
-streamlit
-streamlit-autorefresh
 torch
 whisper
-
+tuya-connector-python
+pygame
+google-generativeai
+flask
