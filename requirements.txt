@@ -11,3 +11,7 @@ streamlit
 streamlit-autorefresh
 torch
 whisper
+tuya-connector-python
+pygame
+google-generativeai
+flask
