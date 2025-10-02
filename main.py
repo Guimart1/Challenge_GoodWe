@@ -31,10 +31,25 @@ def iniciar_assistente():
     
     while True:
         #Ouve o comando do microfone
-        comando_voz = ouvir_microfone().lower()
+        comando_voz=ouvir_microfone()
+
+        if not comando_voz:
+            print("Não entendi, fale novamente...")
+            continue
+
+        comando_voz = comando_voz.lower().replace("!", "").replace(".", "").strip()
+
+        comandos_ligar = ["liga", "ligar", "ligue"]
+        comandos_desligar = ["desliga", "desligar", "desligue"]
         
         #Processa o comando recebido
-        if "ligar" in comando_voz:
+        if any(palavra in comando_voz for palavra in comandos_desligar):
+            print("Comando 'desliga' detectado.")
+            controlar_led("desligar") #Chama a função do controle.py
+            audio_resposta = falar_resposta("Tudo bem, desligando o LED.")
+            reproduzir_audio(audio_resposta)
+        
+        elif any(palavra in comando_voz for palavra in comandos_ligar):
             print("Comando 'ligar' detectado.")
             controlar_led("ligar") #Chama a função do controle.py
             audio_resposta = falar_resposta("Ok, ligando o LED.")
@@ -52,11 +67,11 @@ def iniciar_assistente():
             audio_resposta = falar_resposta("Tudo bem, desligando o LED.")
             reproduzir_audio(audio_resposta)
 
-        elif "desliga" in comando_voz:
-            print("Comando 'desliga' detectado.")
-            controlar_led("desligar") #Chama a função do controle.py
-            audio_resposta = falar_resposta("Tudo bem, desligando o LED.")
-            reproduzir_audio(audio_resposta)
+        # elif any(palavra in comando_voz for palavra in comandos_desligar):
+        #     print("Comando 'desliga' detectado.")
+        #     controlar_led("desligar") #Chama a função do controle.py
+        #     audio_resposta = falar_resposta("Tudo bem, desligando o LED.")
+        #     reproduzir_audio(audio_resposta)
         
         elif "parar" in comando_voz or "sair" in comando_voz:
             print("Comando 'parar' detectado. Encerrando o assistente.")
