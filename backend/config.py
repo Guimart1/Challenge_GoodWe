@@ -2,7 +2,6 @@ import os
 from dotenv import load_dotenv
 load_dotenv()
 
-# Insira sua chave em .env.example e troque o nome do arquivo para .env
 api_key = os.getenv("WEATHER_API_KEY")
 CIDADE = 'São Paulo'
 

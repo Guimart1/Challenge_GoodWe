@@ -81,11 +81,7 @@ def iniciar_assistente():
         
         else:
             print(f"Comando '{comando_voz}' não reconhecido.")
-            #Opcional: dar feedback de que não entendeu
-            #audio_resposta = falar_resposta("Desculpe, não entendi o comando.")
-            #reproduzir_audio(audio_resposta)
 
-#Inicia o programa !!!!!!!!
-#PRA INICIAR USAR "python main.py"
+
 if __name__ == "__main__":
     iniciar_assistente()

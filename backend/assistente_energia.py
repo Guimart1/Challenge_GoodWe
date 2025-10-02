@@ -145,6 +145,9 @@ def gerar_sugestao_comodo(comodo, dados_comodo, dispositivos_ativos, dados_globa
 
 
 def conversar_com_ia(prompt):
-    prompt_modificado = f"Responda de forma breve, direta e com no máximo 40 palavras. Pergunta: {prompt}"
+    prompt_modificado = f"""
+    Responda de forma breve, direta e com no máximo 40 palavras.
+    Pergunta: {prompt}"""
+
     resposta = model.generate_content(prompt_modificado)
     return resposta.text

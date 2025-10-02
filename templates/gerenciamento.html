@@ -42,8 +42,8 @@
                         </div>
                         <div class="text">
                             {{ chave.replace('_', ' ')|upper }} -
-                            <span class="status-text {{ 'ligado' if ligado else 'desligado' }}">
-                                {{ "Ligado" if ligado else "Desligado" }}
+                            <span class="status-text {{ 'ligado' if dispositivos_estado[comodo_selecionado][chave] else 'desligado' }}">
+                                {{ "Ligado" if dispositivos_estado[comodo_selecionado][chave] else "Desligado" }}
                             </span>
                         </div>
                     </button>

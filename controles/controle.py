@@ -46,6 +46,19 @@ def controlar_led(comando: str):
     print("Resposta da API:", response)
 
 
+def get_led_status():
+    """Retorna True se o LED estiver ligado, False se estiver desligado"""
+    try:
+        response = openapi.get(f"/v1.0/iot-03/devices/{DEVICE_ID}/status/")
+        if response.get("success"):
+            for status in response.get("result", []):
+                if status["code"] == "switch_led":
+                    return status["value"]
+        print("Falha ao obter estado do LED:", response)
+        return False
+    except Exception as e:
+        print("Erro ao consultar LED Tuya:", e)
+        return False
 # Exemplo de uso:
 #controlar_led("ligar")     # Liga o LED
 #controlar_led("desligar")  # Desliga o LED

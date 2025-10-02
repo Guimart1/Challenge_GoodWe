@@ -1,46 +1,39 @@
 # blueprints/voz_bp.py
 
 import base64
-from flask import Blueprint, jsonify, request
-import numpy as np
+from flask import Blueprint, jsonify, request, session
 import whisper
 import torch
-import io
-import os
 import tempfile
+import os
 
 from backend.assistente_energia import conversar_com_ia
 from voz_ia.fala import falar_resposta
+from controles.controle import controlar_led  # Importa o controle do LED
 
-# Carregar modelo Whisper (usando "small" para boa precisão)
 model = whisper.load_model("small")
 device = "cuda" if torch.cuda.is_available() else "cpu"
 model.to(device)
 
 voz_bp = Blueprint('voz_bp', __name__)
 
+COMODO_LED = "sala"
+DISPOSITIVO_LED = "lampada_sala"
 
 def transcrever_audio_bytes(audio_bytes):
-    """
-    Transcreve um bloco de bytes de áudio para texto usando Whisper.
-    Usa um arquivo temporário para garantir a leitura mais estável do áudio.
-    """
     temp_file = None
     try:
-        # Cria um arquivo temporário de forma segura
         with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as temp:
             temp.write(audio_bytes)
             temp_file = temp.name
 
         audio = whisper.load_audio(temp_file)
-
         audio = whisper.pad_or_trim(audio)
         mel = whisper.log_mel_spectrogram(audio).to(model.device)
         options = whisper.DecodingOptions(language="pt", fp16=torch.cuda.is_available())
         result = whisper.decode(model, mel, options)
 
         return result.text.strip()
-
     except Exception as e:
         print(f"ERRO DURANTE TRANSCRIÇÃO: {e}")
         return None
@@ -58,23 +51,41 @@ def processar_voz_route():
     audio_bytes = audio_file.read()
 
     comando_voz = transcrever_audio_bytes(audio_bytes)
+    if not comando_voz or len(comando_voz.strip()) < 1:
+        return jsonify({"error": "Não foi possível entender o áudio."}), 400
 
-    if not comando_voz or len(comando_voz.strip()) < 4:
-        return jsonify({"error": "Não foi possível entender o áudio com clareza."}), 400
+    comando_voz_lower = comando_voz.lower()
 
-    resposta_ia_texto = conversar_com_ia(comando_voz)
-    audio_resposta_bytes = falar_resposta(resposta_ia_texto)
+    # Inicializa sessão caso não exista
+    if "dispositivos_estado" not in session:
+        session["dispositivos_estado"] = {}
+    if COMODO_LED not in session["dispositivos_estado"]:
+        session["dispositivos_estado"][COMODO_LED] = {}
+    if DISPOSITIVO_LED not in session["dispositivos_estado"][COMODO_LED]:
+        session["dispositivos_estado"][COMODO_LED][DISPOSITIVO_LED] = False
 
-    if not audio_resposta_bytes:
-        return jsonify({
-            'texto_transcrito': comando_voz,
-            'resposta_ia': resposta_ia_texto,
-            'audio_resposta_b64': ''
-        })
+    # Detecta comandos de ligar/desligar
+    if any(palavra in comando_voz_lower for palavra in ["liga", "ligar", "ligue", "acender"]):
+        controlar_led("ligar")
+        session["dispositivos_estado"][COMODO_LED][DISPOSITIVO_LED] = True
+        resposta_texto = "Ok, ligando a lâmpada da sala."
+    elif any(palavra in comando_voz_lower for palavra in ["desliga", "desligar", "desligue", "apagar"]):
+        controlar_led("desligar")
+        session["dispositivos_estado"][COMODO_LED][DISPOSITIVO_LED] = False
+        resposta_texto = "Tudo bem, desligando a lâmpada da sala."
+    else:
+        # Caso não seja um comando físico, apenas conversa com a IA
+        resposta_texto = conversar_com_ia(comando_voz)
 
-    audio_resposta_b64 = base64.b64encode(audio_resposta_bytes).decode('utf-8')
+    session.modified = True  # Importante para o Flask atualizar a sessão
+
+    # Gera áudio da resposta
+    audio_resposta_bytes = falar_resposta(resposta_texto)
+    audio_resposta_b64 = base64.b64encode(audio_resposta_bytes).decode('utf-8') if audio_resposta_bytes else ''
+
     return jsonify({
         'texto_transcrito': comando_voz,
-        'resposta_ia': resposta_ia_texto,
-        'audio_resposta_b64': audio_resposta_b64
+        'resposta_ia': resposta_texto,
+        'audio_resposta_b64': audio_resposta_b64,
+        'refresh_page': True
     })
