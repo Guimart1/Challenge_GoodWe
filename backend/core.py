@@ -6,7 +6,7 @@ from datetime import datetime
 from flask.cli import load_dotenv
 
 from backend.config import CIDADE, GERACAO_MAXIMA_SOLAR, APARELHOS, CONSUMO_STANDBY, CAPACIDADE_BATERIA
-from backend.conexao_sems import crosslogin, get_inverter_list_demo, get_full_battery_status
+from backend.conexao_sems import mock_login, get_mock_inverter_list, get_mock_full_battery_status
 import os
 
 
@@ -14,16 +14,16 @@ import os
 def get_sems_token():
     acc = os.getenv("SEMS_ACCOUNT", "demo@goodwe.com")
     pwd = os.getenv("SEMS_PASSWORD", "GoodweSems123!@#")
-    token = crosslogin(acc, pwd, region="us")
+    token = mock_login(acc, pwd)
     return token
 
 
 def get_battery_status(token):
-    inverters = get_inverter_list_demo(token, region="eu")
+    inverters = get_mock_inverter_list()
     if not inverters.get("data"):
         return None
     inverter_id = inverters["data"][0]["id"]
-    status = get_full_battery_status(token, inverter_id, region="eu")
+    status = get_mock_full_battery_status(inverter_id)
     return status
 
 
@@ -31,7 +31,7 @@ def get_battery_status(token):
 
 def obter_dados_clima():
     """Busca dados de clima e temperatura da API do WeatherAPI."""
-    url = f"http://api.weatherapi.com/v1/current.json?key={os.getenv("WEATHER_API_KEY")}&q={CIDADE}&lang=pt"
+    url = f"http://api.weatherapi.com/v1/current.json?key={"sua_weather_api_aqui"}&q={CIDADE}&lang=pt"
     try:
         response = requests.get(url)
         response.raise_for_status()

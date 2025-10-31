@@ -1,6 +1,4 @@
-# blueprints/inicio.py
-
-# CORREÇÃO 1: Importar o 'session' do Flask
+#Importar o 'session' do Flask
 from flask import Blueprint, render_template, session
 from datetime import datetime
 import pandas as pd
@@ -9,7 +7,7 @@ import plotly.express as px
 # Importa as funções do backend
 from backend.core import get_sems_token, get_battery_status, simular
 from backend.assistente_energia import gerar_sugestao
-from backend.config import CAPACIDADE_BATERIA, APARELHOS
+from backend.config import CAPACIDADE_BATERIA, APARELHOS, CONSUMO_STANDBY
 
 # Cria o Blueprint
 inicio_bp = Blueprint('inicio', __name__)
@@ -42,7 +40,6 @@ def get_clima_icon_html(condicao):
         return icones.get(condicao, "")
 
 
-# Esta função já estava correta
 def get_pizza_chart_html(dispositivos_estado):
     consumo_por_aparelho_ligado = {}
     if not dispositivos_estado:
@@ -67,7 +64,7 @@ def get_pizza_chart_html(dispositivos_estado):
     return fig.to_html(full_html=False, include_plotlyjs='cdn')
 
 
-# CORREÇÃO 3: Implementação completa da função visual da bateria
+#Implementação completa da função visual da bateria
 def get_bateria_visual_html(nivel):
     porcentagem_bateria = (nivel / CAPACIDADE_BATERIA) * 100
     porcentagem_bateria = max(0, min(porcentagem_bateria, 100))
@@ -92,25 +89,49 @@ def get_bateria_visual_html(nivel):
 @inicio_bp.route('/')
 def index():
     try:
+        # 1. Obter dados da API e simulação base
         token = get_sems_token()
         status = get_battery_status(token)
         if status is None:
             return "Erro: Não foi possível obter dados da API SEMS.", 500
 
         nivel_bateria_real = status["soc"] / 100 * CAPACIDADE_BATERIA
+        
+        # A simulação agora serve principalmente para obter dados do clima e da geração solar
         dados = simular("sala", "nenhum", "bateria", nivel_bateria_real)
         if dados is None:
             return "Erro: Não foi possível obter dados de clima.", 500
 
+        #LER O ESTADO REAL DOS DISPOSITIVOS DA SESSÃO ---
+        dispositivos_estado = session.get("dispositivos_estado", {})
+        dispositivos_ativos = []
+        consumo_total_real = CONSUMO_STANDBY  # Começa com o consumo base
+
+        #  CALCULAR O CONSUMO REAL E A LISTA DE ATIVOS ---
+        # Itera sobre os cômodos e dispositivos para encontrar os que estão ligados
+        for comodo, dispositivos in dispositivos_estado.items():
+            for aparelho, ligado in dispositivos.items():
+                if ligado:
+                    # Adiciona o consumo do aparelho ao total
+                    consumo_total_real += APARELHOS.get(comodo, {}).get(aparelho, 0)
+                    # Adiciona o nome do aparelho à lista de ativos para a IA
+                    nome_formatado = aparelho.replace('_', ' ').title()
+                    dispositivos_ativos.append(nome_formatado)
+        
+        # ATUALIZAR OS DADOS ENVIADOS PARA A IA ---
+        # Substitui o consumo simulado pelo consumo real calculado
+        dados['consumo_total'] = consumo_total_real
+
+        # Agora a sugestão é gerada com os dados corretos
+        sugestao = gerar_sugestao(dados, dispositivos_ativos)
+
     except Exception as e:
+        # Bloco de erro aprimorado para fornecer mais detalhes no terminal
+        print(f"ERRO DETALHADO NA ROTA INICIO: {e}")
         return f"Ocorreu um erro ao carregar os dados: {e}", 500
 
-    dispositivos_ativos = []
-    sugestao = gerar_sugestao(dados, dispositivos_ativos)
-
-    # Esta linha agora funciona por causa da importação do 'session'
-    pizza_chart_html = get_pizza_chart_html(session.get("dispositivos_estado", {}))
-
+    # O resto do código permanece o mesmo, pois já usa os dados corretos
+    pizza_chart_html = get_pizza_chart_html(dispositivos_estado)
     bateria_html = get_bateria_visual_html(nivel_bateria_real)
     clima_icon_html = get_clima_icon_html(dados['condicao_clima'])
 
@@ -122,4 +143,4 @@ def index():
                            bateria_html=bateria_html,
                            clima_icon=clima_icon_html,
                            current_time=datetime.now().strftime("%H:%M"),
-                           aviso_noite="- Noite" if datetime.now().hour < 6 or datetime.now().hour > 18 else "")
+                           aviso_noite="- Noite" if datetime.now().hour < 6 or datetime.now().hour >= 18 else "")

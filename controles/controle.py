@@ -7,10 +7,10 @@ import os
 load_dotenv(override=True)
 
 # Insira suas chaves em .env.example e troque o nome do arquivo para .env
-ACCESS_ID = os.getenv("ACCESS_ID")
-ACCESS_KEY = os.getenv("ACCESS_KEY")
-API_ENDPOINT = os.getenv("API_ENDPOINT")
-DEVICE_ID = os.getenv("DEVICE_ID")
+ACCESS_ID = "seu_access_id"
+ACCESS_KEY = "seu_access_key"
+API_ENDPOINT = 'seu_endpoit'
+DEVICE_ID = "seu_device_id"
 
 # Função para retornar a mudança do DNS
 _original_getaddrinfo = socket.getaddrinfo

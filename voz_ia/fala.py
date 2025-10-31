@@ -5,7 +5,7 @@ from io import BytesIO
 import os
 
 # Insira sua chave em .env.example e troque o nome do arquivo para .env
-elevenlabs_key = os.getenv("ELEVENLABS_API_KEY")
+elevenlabs_key = "sua_api_key"
 
 def falar_resposta(texto):
     if not elevenlabs_key:

@@ -73,7 +73,7 @@ def iniciar_assistente():
         #     audio_resposta = falar_resposta("Tudo bem, desligando o LED.")
         #     reproduzir_audio(audio_resposta)
         
-        elif "parar" in comando_voz or "sair" in comando_voz:
+        elif "para" in comando_voz or "saio" in comando_voz:
             print("Comando 'parar' detectado. Encerrando o assistente.")
             audio_resposta = falar_resposta("Até mais!")
             reproduzir_audio(audio_resposta)

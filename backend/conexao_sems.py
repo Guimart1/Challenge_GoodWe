@@ -1,159 +1,166 @@
 import os
 import json
-import base64
 import random
-import requests
 from datetime import datetime
-from typing import Literal, Dict, Any
+from typing import Dict, Any
 
-# ---------------- CONFIG ----------------
-Region = Literal["us", "eu"]
-BASE = {
-    "us": "https://us.semsportal.com",
-    "eu": "https://eu.semsportal.com",
-}
+# ---------------- CONFIG SIMULADA ----------------
+# Não há mais necessidade de URLs de API ou regiões
 
-# ---------------- LOGIN ----------------
-def _initial_token() -> str:
-    """Token inicial exigido pelo SEMS"""
-    original = {"uid": "", "timestamp": 0, "token": "", "client": "web", "version": "", "language": "en"}
-    b = json.dumps(original).encode("utf-8")
-    return base64.b64encode(b).decode("utf-8")
+def mock_login(account: str, pwd: str) -> str:
+    """
+    Função de login simulada.
+    Não faz nenhuma chamada de rede, apenas retorna um token falso para manter a estrutura do código.
+    """
+    print(f"Simulando login para: {account}...")
+    return "TOKEN_SIMULADO_COM_SUCESSO"
 
-def crosslogin(account: str, pwd: str, region: Region = "us") -> str:
-    """Faz login e retorna token válido"""
-    url = f"{BASE[region]}/api/v2/common/crosslogin"
-    headers = {"Token": _initial_token(), "content-type": "application/json", "Accept": "*/*"}
-    payload = {
-        "account": account,
-        "pwd": pwd,
-        "agreement_agreement": 0,
-        "is_local": False
+def get_mock_inverter_list() -> Dict[str, Any]:
+    """
+    Retorna uma lista de inversores simulada com um ID fixo.
+    """
+    return {
+        "data": [{"id": "GW-MOCK-SN-12345", "name": "Inversor Simulado"}]
     }
-    r = requests.post(url, json=payload, headers=headers, timeout=20)
-    r.raise_for_status()
-    js = r.json()
-    if "data" not in js or js.get("code") not in (0, 1, 200):
-        raise RuntimeError(f"Login falhou: {js}")
-    data_to_string = json.dumps(js["data"])
-    token = base64.b64encode(data_to_string.encode("utf-8")).decode("utf-8")
-    return token
 
-# ---------------- CONSULTAS ----------------
-def get_inverter_list_demo(token: str, region: Region = "eu") -> Dict[str, Any]:
-    """Retorna um inversor demo fixo (evita lista vazia)"""
-    # Demo SN da GoodWe (funciona com demo@goodwe.com)
-    demo_sn = "5010KETU229W6177"
-    return {"data": [{"id": demo_sn, "name": "Demo Inversor"}]}
+def get_mock_full_battery_status(inverter_id: str) -> Dict[str, Any]:
+    """
+    Gera um status completo e fiel da bateria, simulando o comportamento
+    de um sistema fotovoltaico real com base na hora do dia.
+    """
+    agora = datetime.now()
+    hora_atual = agora.hour
 
-def safe_get(data: dict, key: str, default=None):
-    val = data.get(key) if isinstance(data, dict) else None
-    return val if val not in (None, "", "N/A") else default
+    # --- LÓGICA DE SIMULAÇÃO BASEADA NA HORA DO DIA ---
 
-def get_full_battery_status(token: str, inverter_id: str, region: Region = "eu") -> Dict[str, Any]:
-    url = f"{BASE[region]}/api/PowerStationMonitor/GetInverterRealTimeData"
-    headers = {"Token": token, "content-type": "application/json"}
-    payload = {"id": inverter_id}
+    # 1. Geração Solar (ppv) - Curva senoidal simulada
+    if 6 <= hora_atual < 12: # Manhã (rampa de subida)
+        fator = (hora_atual - 6) / 6
+        ppv = int(3500 * fator) + random.randint(-100, 100)
+    elif 12 <= hora_atual < 18: # Tarde (pico e rampa de descida)
+        fator = (18 - hora_atual) / 6
+        ppv = int(3500 * fator) + random.randint(-100, 100)
+    else: # Noite
+        ppv = 0
 
-    r = requests.post(url, json=payload, headers=headers, timeout=20)
-    r.raise_for_status()
-    js = r.json()
-    data = js.get("data") or {}
+    # 2. Consumo da Casa (pload) - Varia com o horário de pico
+    if 5 <= hora_atual < 9: # Manhã (pico)
+        pload = random.randint(800, 1500)
+    elif 18 <= hora_atual < 22: # Noite (pico principal)
+        pload = random.randint(1000, 2500)
+    else: # Consumo base
+        pload = random.randint(200, 500)
+
+    # 3. Lógica da Bateria (pbat e soc)
+    saldo_energia = ppv - pload  # Saldo: Geração - Consumo
+    
+    soc = 80 # SOC base para o cálculo
+    pbat = 0
+    pgrid = 0
+    inverter_status = "Standby"
+
+    if saldo_energia > 0: # Excedente de energia (Dia com Sol)
+        inverter_status = "Online"
+        # Tenta carregar a bateria com o excedente, limitado a 2500W
+        pbat = min(saldo_energia, 2500)
+        soc = min(100, soc + (pbat / 5000) * 100) # Simula ganho de SOC
+        
+        # O que sobrar depois de carregar a bateria, exporta para a rede
+        pgrid = (saldo_energia - pbat) * -1 # Negativo = Exportando
+
+    elif saldo_energia < 0: # Déficit de energia (Noite ou Dia Nublado)
+        inverter_status = "Online"
+        deficit = abs(saldo_energia)
+        
+        # Tenta suprir o déficit com a bateria, limitado a 2500W
+        pbat = -min(deficit, 2500)
+        soc = max(15, soc - (abs(pbat) / 5000) * 100) # Simula perda de SOC
+        
+        # Se a bateria não for suficiente, importa da rede
+        if abs(pbat) < deficit:
+            pgrid = deficit - abs(pbat) # Positivo = Importando
+
+    # Ajustes finais para realismo
+    soc = round(soc, 1)
+    temp_bat = round(25 + (abs(pbat) / 2500) * 5, 1) # Bateria esquenta um pouco com uso intenso
+    vbat = round(48.0 + (soc - 50) / 25, 2) # Tensão varia com o SOC
+    ibat = round(pbat / vbat, 2)
 
     return {
-        # -------- Seção 1 – Status em tempo real --------
-        "soc": safe_get(data, "batterySoc", round(random.uniform(40, 40), 1)),
-        "p_instant": (safe_get(data, "pcharge", 0) or 0) - (safe_get(data, "pdischarge", 0) or 0)
-                     or round(random.uniform(-2.0, 2.0), 2),  # kW (+ carrega, - descarrega)
+        # -------- Seção 1 – Status em tempo real (SIMULADO) --------
+        "soc": soc,
+        "p_instant": round(pbat / 1000, 2), # kW (+ carrega, - descarrega)
         "flux": {
-            "rede": safe_get(data, "pgrid", random.randint(-1000, 1000)),
-            "solar": safe_get(data, "ppv", random.randint(0, 3000)),
-            "bateria": safe_get(data, "pbat", random.randint(-500, 500)),
-            "casa": safe_get(data, "pload", random.randint(500, 2000)),
+            "rede": pgrid,
+            "solar": ppv,
+            "bateria": pbat,
+            "casa": pload,
         },
-        "temp_bat": safe_get(data, "batTemp", round(random.uniform(25, 35), 1)),
-        "tensao_bat": safe_get(data, "vbat", round(random.uniform(48, 52), 2)),
-        "corrente_bat": safe_get(data, "ibat", round(random.uniform(-20, 20), 2)),
-        "status_inversor": safe_get(data, "inverterStatus", "Online"),
+        "temp_bat": temp_bat,
+        "tensao_bat": vbat,
+        "corrente_bat": ibat,
+        "status_inversor": inverter_status,
 
-        # -------- Seção 2 – Alarmes & Saúde --------
-        "alarmes": data.get("alarmList", ["Nenhum alarme ativo"]),
-        "soh": safe_get(data, "soh", 92),  # MOCK
+        # -------- Seção 2 – Alarmes & Saúde (Valores fixos críveis) --------
+        "alarmes": ["Nenhum alarme ativo"],
+        "soh": 98,
         "ciclos": {
-            "realizados": safe_get(data, "batteryCycles", random.randint(100, 200)),
+            "realizados": 342,
             "estimado": 6000
         },
 
-        # -------- Seção 3 – Histórico --------
+        # -------- Seção 3 – Histórico (Valores fixos críveis) --------
         "historico": {
-            "curva_diaria": ["08h=10%", "12h=55%", "16h=70%", "20h=50%"],  # MOCK
-            "grafico_mensal": {"Jan": 120, "Fev": 140, "Mar": 100},       # MOCK kWh
-            "pizza_distribuicao": {"solar": 55, "bateria": 30, "rede": 15}, # MOCK %
+            "curva_diaria": ["08h=10%", "12h=55%", "16h=70%", "20h=50%"],
+            "grafico_mensal": {"Jan": 320, "Fev": 340, "Mar": 310},
+            "pizza_distribuicao": {"solar": 65, "bateria": 25, "rede": 10},
         },
 
-        # -------- Seção 4 – Sustentabilidade --------
-        "energia_acumulada": safe_get(data, "etotal", 10500),  # kWh
-        "economia": 0.85 * (safe_get(data, "etotal", 10500) or 0),
-        "co2_ev": safe_get(data, "co2total", 4800),           # kg
+        # -------- Seção 4 – Sustentabilidade (Valores fixos críveis) --------
+        "energia_acumulada": 12540,
+        "economia": 0.85 * 12540,
+        "co2_ev": 5120,
     }
 
 
 # ---------------- MAIN ----------------
 if __name__ == "__main__":
     try:
-        # Credenciais (usar variáveis de ambiente ou demo)
-        acc = os.getenv("SEMS_ACCOUNT", "demo@goodwe.com")
-        pwd = os.getenv("SEMS_PASSWORD", "GoodweSems123!@#")
+        # Credenciais não são mais usadas para a API, mas mantidas para a estrutura
+        acc = os.getenv("SEMS_ACCOUNT", "seu_email@ficticio.com")
+        pwd = os.getenv("SEMS_PASSWORD", "SuaSenhaFicticia")
 
-        # Login US e dados EU (conta demo)
-        login_region = "us"
-        data_region = "eu"
+        # Login simulado
+        token = mock_login(acc, pwd)
+        print("🔑 Login simulado OK")
 
-        token = crosslogin(acc, pwd, login_region)
-        print("🔑 Login OK")
-
-        # Pegando inversor demo
-        inverters = get_inverter_list_demo(token, data_region)
-        if not inverters.get("data"):
-            raise RuntimeError("Nenhum inversor demo encontrado.")
-
+        # Pegando inversor simulado
+        inverters = get_mock_inverter_list()
         inverter_id = inverters["data"][0]["id"]
-        print(f"⚡ Usando inversor: {inverter_id}")
+        print(f"⚡ Usando inversor simulado: {inverter_id}")
 
-        # Buscar status da bateria
-        status = get_full_battery_status(token, inverter_id, data_region)
+        # Buscar status simulado da bateria
+        status = get_mock_full_battery_status(inverter_id)
 
         # Montar painel
         painel = {
-    "Última atualização": datetime.now().strftime("%Y-%m-%d %H:%M"),
+            "Última atualização": datetime.now().strftime("%Y-%m-%d %H:%M"),
+            "MODO": "DADOS SIMULADOS",
+            "Status do inversor": status["status_inversor"],
+            "SOC (%)": status["soc"],
+            "Potência da Bateria (kW)": status["p_instant"],
+            "Fluxo de Energia (W)": status["flux"],
+            "Temperatura da Bateria (°C)": status["temp_bat"],
+            "Tensão da Bateria (V)": status["tensao_bat"],
+            "Corrente da Bateria (A)": status["corrente_bat"],
+            "Saúde da Bateria (SoH %)": status["soh"],
+            "Ciclos": status["ciclos"],
+            "Economia Estimada (R$)": f'{status["economia"]:.2f}',
+            "Carbono Evitado (kg CO₂)": status["co2_ev"],
+        }
 
-    # Seção 1 – Status em tempo real
-    "SOC (%)": status["soc"],
-    "Potência instantânea (kW)": status["p_instant"],
-    "Fluxo de energia (W)": status["flux"],
-    "Temperatura da bateria (°C)": status["temp_bat"],
-    "Tensão da bateria (V)": status["tensao_bat"],
-    "Corrente da bateria (A)": status["corrente_bat"],
-    "Status do inversor": status["status_inversor"],
-
-    # Seção 2 – Alarmes & Saúde
-    "Alarmes ativos": status["alarmes"],
-    "Saúde da bateria (%)": status["soh"],
-    "Ciclos": status["ciclos"],
-
-    # Seção 3 – Histórico
-    "Histórico diário": status["historico"]["curva_diaria"],
-    "Histórico mensal (kWh)": status["historico"]["grafico_mensal"],
-    "Distribuição energia (%)": status["historico"]["pizza_distribuicao"],
-
-    # Seção 4 – Sustentabilidade
-    "Energia acumulada (kWh)": status["energia_acumulada"],
-    "Economia estimada (R$)": status["economia"],
-    "Carbono evitado (kg CO₂)": status["co2_ev"],
-}
-
-        print("\n📊 Painel da Bateria:")
+        print("\n📊 Painel Simulado da Bateria:")
         print(json.dumps(painel, indent=2, ensure_ascii=False))
 
     except Exception as e:
-        print("❌ Erro:", e)
+        print("❌ Erro inesperado no script:", e)
